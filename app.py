@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 from fastapi.responses import JSONResponse
 from market_data import TwelveDataAdapter, MarketDataError
 from strategy import signal_from_bars, backtest, CONFIG
+from agent_curriculum import curriculum, candidate_integrity, analyst_guidance, evidence_review, VERSION as CURRICULUM_VERSION
 
 app = FastAPI(title="Trading Control Room - Paper Operations")
 DB = os.getenv("TCR_DB", "control_room.db")
@@ -217,6 +218,8 @@ def freeze_system(reason):
     emit("Supervisor","ALL","FREEZE","FROZEN",reason)
 
 def risk_check(candidate):
+    consistent,reason=candidate_integrity(candidate)
+    if not consistent:return False,'Book-informed sizing check: '+reason
     if not all(isinstance(candidate.get(k), (int, float)) and math.isfinite(candidate[k]) and candidate[k] > 0 for k in ("quantity", "position_value", "planned_loss", "stop", "entry_reference")):
         return False, "Invalid candidate values."
     if candidate["stop"] >= candidate["entry_reference"]: return False, "Invalid protective stop."
@@ -254,6 +257,7 @@ def paper_enter(candidate, bar):
     context={"strategy":"Trend Breakout v1","mode":"paper","captured_at":utcnow(),
              "candidate":candidate,"strategy_config":asdict(CONFIG),"risk_rules":dict(RULES),
              "instrument":dict(INSTRUMENTS[current_symbol()])}
+    context['curriculum_version']=CURRICULUM_VERSION
     con.execute("INSERT INTO trade_context VALUES (?,?)",(trade_id,json.dumps(context)))
     con.commit(); con.close()
     set_state("cash",s["cash"]-value)
@@ -301,7 +305,7 @@ def reviewer_snapshot():
     report={"closed_trades":len(rows),"wins":len(wins),
             "win_rate_pct":(len(wins)/len(rows)*100 if rows else 0),
             "realized_pnl":pnl,"daily_realized_pnl":today_realized(),
-            "state":get_state()}
+            "state":get_state(),"learning_review":evidence_review(rows)}
     rid=str(uuid.uuid4())
     con=db(); con.execute("INSERT INTO reviews VALUES (?,?,?,?)",(rid,utcnow(),"OPERATIONS",json.dumps(report)))
     con.commit(); con.close()
@@ -389,6 +393,7 @@ def process_bars(bars, allow_entry=True):
             emit("Supervisor","Analyst","ENTRY_SKIPPED","NO_ACTION","Historical, stale or observation-only candle; no entry.")
             return {"status":"ENTRY_SKIPPED"}
         sig=signal_from_bars(bars)
+        sig['learning']=analyst_guidance(sig)
         emit("Analyst","Risk & Compliance",sig["signal"],
              "PENDING" if sig["signal"]=="CANDIDATE" else "NO_ACTION",sig["reason"],sig)
         if sig["signal"]!="CANDIDATE":
@@ -424,6 +429,10 @@ def startup():
         raise RuntimeError("Control token and dashboard password are required.")
     os.makedirs(os.path.dirname(os.path.abspath(DB)), exist_ok=True)
     init_db()
+    training=curriculum()
+    if not training['self_check']['passed']:raise RuntimeError('Curriculum self-check failed.')
+    emit('Supervisor','ALL','CURRICULUM_LOADED','ACTIVE','Book-informed rule curriculum loaded.',
+         {'version':training['version'],'fingerprint':training['fingerprint'],'checks':training['self_check']})
     if os.getenv("TWELVE_DATA_API_KEY"):
         start_scheduler()
         emit("Supervisor","ALL","STARTUP","ACTIVE","Paper operations scheduler started.",{"poll_seconds":POLL_SECONDS})
@@ -437,7 +446,7 @@ def status():
     raw=state_raw()
     unrealized=sum(p["qty"]*(float(raw.get("mark:"+p["symbol"],raw.get("last_price",p["entry_price"]) if p["symbol"]=="SPY" else p["entry_price"]))-p["entry_price"]) for p in open_positions())
     return {"last_success":state_raw().get("last_success", ""), "last_processed_bar":state_raw().get(checkpoint_key(), ""), "rules":RULES,"state":s,"daily_realized_pnl":today_realized(),
-            "open_position":pos,"open_positions":open_positions(),"coverage":coverage(),"unrealized_pnl":unrealized,
+            "open_position":pos,"open_positions":open_positions(),"coverage":coverage(),"training":curriculum(),"unrealized_pnl":unrealized,
             "scheduler_running":bool(_scheduler_thread and _scheduler_thread.is_alive())}
 
 @app.get('/coverage')
@@ -450,6 +459,10 @@ def coverage():
         error=raw.get('feed_error:'+symbol,'') if raw.get('coverage:'+symbol)=='FEED_ERROR' else '') for symbol,i in INSTRUMENTS.items()],
       'awaiting_data':['Australian shares/ETFs','Hong Kong shares/ETFs','China Connect','US options','Warrants'],
       'disabled_features':['Margin','Short selling'],'crypto_note':'Observation only; crypto execution fee/spread model is not validated.'}
+
+@app.get('/training')
+def training_status():
+    return dict(curriculum(),evidence=evidence_review(positions()))
 
 @app.get("/messages")
 def messages(limit:int=200):

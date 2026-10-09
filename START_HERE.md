@@ -29,6 +29,11 @@ If you see `ERR_INVALID_AUTH_CREDENTIALS`, try Chrome Incognito or Edge InPrivat
 
 ## Check operation
 
+**Agent learning** shows the five-book curriculum and what each agent applies.
+Read [Agent learning guide](AGENT_LEARNING.md) for the coded checks and research
+boundaries. The agents use rule-based software; this does not claim model
+fine-tuning or full-book ingestion.
+
 Use **Journal & analytics** for swing-trade outcomes, holding periods and saved
 reviews. **Plan & playbook** contains the active strategy and a scenario calculator.
 Read [Swing journal guide](SWING_JOURNAL.md) for metric definitions. New trade plans

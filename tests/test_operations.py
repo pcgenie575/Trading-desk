@@ -128,7 +128,9 @@ class Operations(unittest.TestCase):
     def test_trade_plan_and_review_persist_without_changing_execution(self):
         room.process_bars(self.bars)
         position=room.open_position();record=room.journal()['trades'][0]
-        self.assertEqual(record['context']['candidate'],self.sig)
+        self.assertEqual({k:record['context']['candidate'][k] for k in self.sig},self.sig)
+        self.assertEqual(record['context']['curriculum_version'],room.CURRICULUM_VERSION)
+        self.assertIn('learning',record['context']['candidate'])
         self.assertEqual(record['context']['strategy'],'Trend Breakout v1')
         review=room.TradeReviewInput(review_status='reviewed',followed_rules='partial',rule_break='other',notes='<script>test text</script>')
         room.save_trade_review(position['id'],review,'test-control-token')
@@ -156,5 +158,25 @@ class Operations(unittest.TestCase):
         con.commit();con.close();room.init_db()
         record=room.journal()['trades'][0]
         self.assertIsNone(record['context']);self.assertEqual(record['notes'],'existing review');self.assertEqual(record['rule_break'],'none')
+
+    def test_book_curriculum_applies_sizing_checks_and_evidence_limits(self):
+        course=room.curriculum();self.assertEqual(len(course['books']),5);self.assertEqual(len(course['agents']),7)
+        self.assertTrue(course['self_check']['passed'])
+        self.assertTrue(room.risk_check(self.sig)[0])
+        self.assertFalse(room.risk_check(dict(self.sig,planned_loss=1))[0])
+        self.assertFalse(room.risk_check(dict(self.sig,position_value=1))[0])
+        rows=[dict(id='1',status='CLOSED',exit_time='2026-10-01',planned_loss=25,realized_pnl=50),
+              dict(id='2',status='CLOSED',exit_time='2026-10-02',planned_loss=25,realized_pnl=-25),
+              dict(id='3',status='OPEN',planned_loss=25,realized_pnl=999)]
+        review=room.evidence_review(rows)
+        self.assertEqual(review['eligible_r_trades'],2);self.assertEqual(review['mean_r'],.5)
+        self.assertEqual(review['recent_loss_streak'],1);self.assertFalse(review['edge_validated'])
+        many=[dict(rows[0],id=str(i)) for i in range(30)]
+        self.assertEqual(room.evidence_review(many)['evidence_status'],'READY_FOR_REVIEW')
+        self.assertFalse(room.evidence_review(many)['edge_validated'])
+        with TestClient(room.app) as client:
+            self.assertEqual(client.get('/training').status_code,401)
+            client.auth=('operator','test-password')
+            self.assertEqual(client.get('/training').json()['version'],room.CURRICULUM_VERSION)
 
 if __name__=='__main__': unittest.main()
