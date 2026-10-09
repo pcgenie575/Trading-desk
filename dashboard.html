@@ -1,165 +1,200 @@
-<!doctype html>
-
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Trading Desk · Paper Operations</title>
-
-<style>
-
-:root{color-scheme:dark;--bg:#0b111b;--panel:#121e2e;--line:#28384b;--muted:#9baec4;--accent:#64d9c0}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#eef4fc;font:15px system-ui,sans-serif}main{max-width:1400px;margin:auto;padding:28px}h1{font-size:30px;margin:0}h2{font-size:20px}p{line-height:1.55}.muted{color:var(--muted)}.top{display:flex;justify-content:space-between;align-items:center;gap:16px}.pill{border:1px solid var(--line);border-radius:30px;padding:7px 12px;color:var(--accent)}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:24px 0}.metric,.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}.value{display:block;font-size:25px;margin-top:8px}.layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,1fr);gap:20px}.bots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.bot{appearance:none;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;text-align:left;cursor:pointer;min-height:200px;display:flex;flex-direction:column;gap:12px}.bot:hover,.bot[aria-pressed=true]{border-color:var(--accent);background:#172b3b}.bot:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:3px}.bot strong{font-size:17px}.bot .activity{font-size:13px;line-height:1.5;color:var(--muted)}.bot time{font-size:11px;color:var(--muted);margin-top:auto}.badge{font-size:11px;color:var(--accent);letter-spacing:.06em}.bad{color:#ff8f8f}.flow{padding:14px 0;color:var(--accent);font-size:13px;line-height:1.8}.event{border-top:1px solid var(--line);padding:14px 0}.event p{margin:8px 0}.event time{font-size:12px;color:var(--muted)}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);padding:12px;border-radius:8px;font-size:12px}details{margin-top:10px}button.control{border:1px solid var(--line);background:#203249;color:inherit;border-radius:9px;padding:10px 14px;cursor:pointer}.controls{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid var(--line);white-space:nowrap}#error{color:#ff8f8f}#detail{align-self:start;max-height:800px;overflow:auto}.section{margin-top:20px}@media(max-width:1050px){.layout{grid-template-columns:1fr}.bots{grid-template-columns:repeat(3,1fr)}#detail{max-height:none}}@media(max-width:650px){main{padding:16px}.metrics,.bots{grid-template-columns:repeat(2,1fr)}.top{align-items:flex-start;flex-direction:column}.bot{min-height:190px}}@media(prefers-reduced-motion:no-preference){.bot{transition:border-color .15s,background .15s}}
-
-
-.layout{grid-template-columns:1fr}.desk-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}.flow-scroll{overflow:auto;border:1px solid var(--line);border-radius:16px;background:radial-gradient(ellipse at top,#173042 0%,#0d1725 70%)}.diagram{position:relative;min-width:840px;aspect-ratio:1000/680}.links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.link{fill:none;stroke:#476379;stroke-width:2;opacity:.6}.link.oversee{stroke-dasharray:5 7;opacity:.35}.link.active{stroke:#72f3d0;opacity:1;stroke-width:3;filter:drop-shadow(0 0 5px #64d9c0)}.packet{fill:#c7fff1;filter:drop-shadow(0 0 6px #64d9c0)}.bots{display:contents}.bot{position:absolute;width:21%;min-height:0;height:25%;padding:14px;gap:8px;background:#132437;box-shadow:0 10px 24px #0003;overflow:hidden}.bot strong{font-size:15px}.bot .activity{font-size:12px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.bot time{font-size:10px}.bot.pulse{border-color:#b9ffe9;box-shadow:0 0 22px #64d9c044}.flow-status{font-size:13px;min-height:44px;color:var(--muted);padding:12px 4px}.flow-status b{color:var(--accent)}.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:12px 0}.legend span:before{content:'';display:inline-block;width:22px;border-top:2px solid #476379;margin-right:7px;vertical-align:middle}.legend span:last-child:before{border-top:2px dashed #476379}.diagram-label{position:absolute;left:4%;top:3%;color:var(--muted);font-size:11px;letter-spacing:.1em;pointer-events:none}@media(max-width:1200px){.desk-layout{grid-template-columns:1fr}#detail{max-height:600px}}@media(max-width:650px){.bot{min-height:0}.diagram{min-width:840px}}@media(prefers-reduced-motion:reduce){.packet{display:none}}
-</style></head><body><main>
-
-<div class="top"><div><h1>Trading Desk</h1><p class="muted">Your team, decisions and paper account in one view.</p></div><span class="pill">PAPER ONLY · FREE DATA / 4H</span></div>
-
-<div id="error" role="alert"></div><div id="metrics" class="metrics"></div>
-
-<div class="desk-layout"><section><h2>Agent flow</h2><p class="muted">Select an agent to inspect its work. Moving lights follow new recorded messages between agents.</p><div class="flow-scroll"><div class="diagram"><span class="diagram-label">AUTONOMOUS PAPER DESK</span><svg id="links" class="links" viewBox="0 0 1000 680" aria-label="Agent communication connections" role="img"></svg><div id="bots" class="bots"></div></div></div><div class="legend"><span>Message route</span><span>Supervisor oversight</span></div><div id="flow-status" class="flow-status" role="status" aria-live="polite">Waiting for recorded communications.</div><p class="muted" id="updated"></p></section><aside id="detail" class="panel" aria-live="polite"></aside></div>
-<div class="controls"><button class="control" data-action="cycle">Run cycle now</button><button class="control" data-action="freeze">Freeze entries</button><button class="control" data-action="resume">Resume entries</button><button class="control" data-action="review">Reviewer snapshot</button><span id="action" role="status"></span></div>
-
-<section class="panel section"><h2>Market coverage</h2><p class="muted">Rotating free-data watchlist, not the complete Webull catalogue. Open positions checked every 15 minutes; other symbols rotate every 5 minutes. Crypto is observation only.</p><div id="coverage"></div></section>
-
-<section class="panel section"><h2>Paper ledger</h2><div class="tablewrap" id="positions"></div></section>
-
-<section class="panel section"><h2>Desk audit feed</h2><p class="muted">Recorded events across the team. Bot activity reflects audit records and scheduler state.</p><div id="feed"></div></section>
-
-</main><script>
-
-const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-const money=x=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(x||0);
-
-const stamp=x=>x?new Date(x).toLocaleString():'No recorded event';
-
-const team=[
-
-{name:'Market Data',role:'Collects completed US and crypto watchlist candles within the free-data budget.'},
-
-{name:'Analyst',role:'Applies the fixed trend-breakout rules to completed four-hour candles.'},
-
-{name:'Risk & Compliance',role:'Checks position size, planned loss and account circuit breakers.'},
-
-{name:'Paper Trader',role:'Simulates entries and exits and maintains the paper position.'},
-
-{name:'Logger',role:'Persists desk events and decisions in the audit history.'},
-
-{name:'Supervisor',role:'Oversees the scheduler, freezes and recovery.'},
-
-{name:'Performance Reviewer',role:'Reviews completed trades, realized P/L and account performance.'}];
-
-let selected='Supervisor',snapshot=null,busy=false;
-
-function related(name){return snapshot.messages.filter(m=>name==='Logger'||m.sender===name||m.recipient===name||m.recipient==='ALL')}
-
-function botState(name){
-
- const s=snapshot.status, latest=related(name)[0], sent=snapshot.messages.find(m=>m.sender===name);
-
- if(name==='Supervisor')return {label:s.state.frozen?'FROZEN':s.scheduler_running?'RUNNING':'WAITING',text:s.state.freeze_reason||(s.scheduler_running?'Scheduler is running. Entries remain subject to risk checks.':'Scheduler is not running.'),latest};
-
- if(name==='Market Data'){const c=s.coverage;return {label:sent?.type==='SYSTEM_ERROR'?'FEED ERROR':c?'SCANNING':'WAITING',text:c?c.instruments.filter(i=>i.last_success).length+' / '+c.instruments.length+' symbols have received data. '+c.credits_used_today+' / '+c.daily_request_cap+' daily requests used.':'Waiting for data.',latest}};
-
- if(name==='Paper Trader'){const ps=s.open_positions||[];return {label:ps.length?'POSITIONS OPEN':'FLAT',text:ps.length?ps.length+' paper positions: '+ps.map(p=>p.symbol).join(', ')+'. Unrealized '+money(s.unrealized_pnl)+'.':'No open paper position.',latest}};
-
- if(name==='Logger')return {label:'AUDIT HISTORY',text:snapshot.messages.length+' recent recorded events available.',latest};
-
- if(name==='Performance Reviewer')return {label:'REVIEW',text:snapshot.review.closed_trades+' closed trades · Realized '+money(snapshot.review.realized_pnl)+'.',latest};
-
- return {label:latest?.status||'WAITING',text:latest?.reason||'No recent recorded activity. Waiting for the next decision.',latest}
-
-}
-
-function event(m){return '<div class="event"><b>'+esc(m.sender)+' → '+esc(m.recipient)+'</b><div class="badge">'+esc(m.type)+' · '+esc(m.status)+'</div><p>'+esc(m.reason)+'</p><time>'+esc(stamp(m.ts))+'</time><details><summary>Decision data</summary><pre>'+esc(JSON.stringify(m.data,null,2))+'</pre></details></div>'}
-
-function renderDetail(){
-
- const bot=team.find(b=>b.name===selected),state=botState(selected),s=snapshot.status;
-
- let facts='';
-
- if(selected==='Risk & Compliance')facts='<p>Maximum position '+money(s.rules.max_position)+' · Planned loss '+money(s.rules.max_planned_loss)+'<br>Portfolio: up to '+s.rules.max_open_positions+' positions · '+money(s.rules.max_portfolio_exposure)+' exposure<br>Daily loss stop '+money(s.rules.daily_loss_stop)+' · Drawdown freeze '+money(s.rules.drawdown_freeze)+'</p>';
-
- if(selected==='Supervisor')facts='<p>Last scheduler cycle: '+esc(stamp(s.state.last_cycle))+'<br>Last newly processed candle: '+esc(s.last_processed_bar||'None')+'</p>';
-
- if(selected==='Performance Reviewer')facts='<p>Closed trades: '+snapshot.review.closed_trades+' · Win rate: '+snapshot.review.win_rate_pct.toFixed(1)+'%<br>Realized P/L: '+money(snapshot.review.realized_pnl)+'</p>';
-
- document.getElementById('detail').innerHTML='<span class="badge">'+esc(state.label)+'</span><h2>'+esc(selected)+'</h2><p class="muted">'+esc(bot.role)+'</p><p>'+esc(state.text)+'</p>'+facts+'<h3>Recent activity</h3>'+ (related(selected).slice(0,15).map(event).join('')||'<p class="muted">No events in the recent history. This does not indicate an error.</p>');
-
-}
-
-function renderCoverage(){const c=snapshot.status.coverage;if(!c){document.getElementById('coverage').textContent='Coverage unavailable.';return}document.getElementById('coverage').innerHTML='<p>Requests today: '+c.credits_used_today+' / '+c.daily_request_cap+' · New-symbol scans stop at '+c.scanner_cap+' to reserve exit capacity.</p><div class=tablewrap><table><tr><th>Symbol</th><th>Type</th><th>Mode</th><th>Data status</th><th>Last completed candle (New York)</th><th>Last successful fetch</th></tr>'+c.instruments.map(i=>'<tr><td>'+esc(i.symbol)+'</td><td>'+esc(i.asset)+'</td><td>'+(i.paper_enabled?'Paper eligible':'Observe only')+'</td><td title="'+esc(i.error)+'">'+esc(i.status)+'</td><td>'+esc(i.last_bar||'—')+'</td><td>'+esc(stamp(i.last_success))+'</td></tr>').join('')+'</table></div><p class=muted>Awaiting data/models: '+c.awaiting_data.map(esc).join(', ')+'. Disabled: '+c.disabled_features.map(esc).join(', ')+'.</p>'}
-
-
-const nodeLayout={
- 'Market Data':[145,315], 'Analyst':[425,315], 'Risk & Compliance':[705,315],
- 'Paper Trader':[705,565], 'Logger':[425,565], 'Performance Reviewer':[145,565], 'Supervisor':[425,105]
-};
-const routes=[['Market Data','Analyst'],['Analyst','Risk & Compliance'],['Risk & Compliance','Paper Trader'],['Paper Trader','Logger'],['Performance Reviewer','Supervisor'],['Market Data','Logger'],['Analyst','Paper Trader']];
-const seenMessages=new Set();let flowInitialized=false,flowGeneration=0;
-function routePath(from,to){
- const a=nodeLayout[from],b=nodeLayout[to];if(!a||!b||from===to)return null;
- // Route from card borders, with a central bend that keeps the direction visible.
- const dx=b[0]-a[0],dy=b[1]-a[1],horizontal=Math.abs(dx)>Math.abs(dy);
- const x1=a[0]+(horizontal?Math.sign(dx)*105:0),y1=a[1]+(horizontal?0:Math.sign(dy)*85);
- const x2=b[0]-(horizontal?Math.sign(dx)*105:0),y2=b[1]-(horizontal?0:Math.sign(dy)*85);
- return horizontal?`M ${x1} ${y1} C ${(x1+x2)/2} ${y1}, ${(x1+x2)/2} ${y2}, ${x2} ${y2}`:`M ${x1} ${y1} C ${x1} ${(y1+y2)/2}, ${x2} ${(y1+y2)/2}, ${x2} ${y2}`;
-}
-function drawLinks(){
- let edges=routes.map(r=>[...r,false]);
- for(const b of team)if(b.name!=='Supervisor')edges.push(['Supervisor',b.name,true]);
- document.getElementById('links').innerHTML='<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7292aa"/></marker></defs>'+edges.map(([a,b,oversight])=>'<path class="link '+(oversight?'oversee':'')+'" d="'+routePath(a,b)+'" marker-end="url(#arrow)"><title>'+esc(a)+' → '+esc(b)+(oversight?' oversight':' message route')+'</title></path>').join('');
-}
-function animateMessage(m,generation){
- if(generation!==flowGeneration)return;
- const recipients=m.recipient==='ALL'?team.map(b=>b.name).filter(n=>n!==m.sender):[m.recipient];
- const paths=recipients.map(to=>routePath(m.sender,to)).filter(Boolean);
- if(!paths.length)return;
- const svg=document.getElementById('links'),reduced=matchMedia('(prefers-reduced-motion:reduce)').matches;
- const group=document.createElementNS('http://www.w3.org/2000/svg','g');
+<!doctype html>
+
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Trading Desk · Paper Operations</title>
+
+<style>
+:root{color-scheme:dark;--bg:#080e18;--panel:#111b2a;--line:#253449;--muted:#9badc3;--accent:#71e2c0}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(ellipse at 10% 0%,#19304777,transparent 45%),var(--bg);color:#eaf0fa;font:14px system-ui,-apple-system,sans-serif}main{max-width:1480px;margin:auto;padding:32px}h1{font-size:34px;letter-spacing:-1.3px;margin:5px 0}h2{font-size:20px;letter-spacing:-.5px;margin:0 0 8px}h3{font-size:14px;margin-top:28px}p{line-height:1.6}.muted{color:var(--muted)}.top{display:flex;align-items:center;justify-content:space-between;gap:20px;padding-bottom:22px;border-bottom:1px solid var(--line)}.eyebrow{font-size:10px;letter-spacing:.2em;color:var(--accent);font-weight:700}.brand{display:flex;align-items:center;gap:16px}.brand-mark{width:48px;height:48px;border:1px solid #71e2c055;border-radius:14px;display:grid;place-items:center;color:var(--accent);background:#71e2c00b;font-size:25px}.top p{margin:5px 0 0}.pill{border:1px solid #71e2c033;background:#71e2c00b;border-radius:30px;padding:9px 13px;color:var(--accent);font-size:10px;letter-spacing:.08em;white-space:nowrap}.nav{display:flex;gap:24px;padding-top:18px}.nav a{color:var(--muted);text-decoration:none;font-size:12px}.nav a:hover{color:var(--accent)}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:26px 0 32px}.metric{position:relative;padding:21px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(135deg,#19283a,#111b2a);overflow:hidden}.metric:after{content:'';position:absolute;right:-15px;top:-30px;width:100px;height:100px;border-radius:50%;border:18px solid #b1c7ff04}.metric:first-child{border-color:#71e2c044;background:linear-gradient(135deg,#183b3c,#11252e)}.metric .muted{font-size:11px;text-transform:uppercase;letter-spacing:.09em}.value{display:block;font-size:30px;letter-spacing:-1px;margin-top:12px;font-variant-numeric:tabular-nums;font-weight:600}.positive{color:var(--accent)}.negative,.bad{color:#ff9fa7}.metric-note{display:block;font-size:10px;color:var(--muted);margin-top:8px}.desk-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}.flow-scroll{overflow:auto;border:1px solid var(--line);border-radius:20px;background:radial-gradient(ellipse at center,#172b3d66,transparent 70%),radial-gradient(#6c90b721 1px,transparent 1px),#0c1522;background-size:auto,22px 22px,auto;box-shadow:0 20px 60px #0002;margin-top:18px}.diagram{position:relative;min-width:840px;aspect-ratio:1000/680}.diagram-label{position:absolute;left:4%;top:5%;font-size:10px;letter-spacing:.15em;color:#7890ad}.links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.link{fill:none;stroke:#57718c;stroke-width:1.5;opacity:.65}.link.oversee{stroke-dasharray:4 8;opacity:.3}.link.active{stroke:var(--accent);opacity:1;stroke-width:3;filter:drop-shadow(0 0 5px #71e2c0)}.packet{fill:#d4fff0;filter:drop-shadow(0 0 6px #71e2c0)}.bots{display:contents}.bot{--bot-color:#78b4ff;appearance:none;position:absolute;width:21%;height:25%;min-height:0;border:1px solid #344b64;border-top:2px solid var(--bot-color);border-radius:14px;padding:12px;color:inherit;background:linear-gradient(145deg,#1a2b3e,#122031);text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:6px;box-shadow:0 10px 25px #0004;overflow:hidden}.bot:nth-child(2){--bot-color:#b39cff}.bot:nth-child(3){--bot-color:#e8c27c}.bot:nth-child(4){--bot-color:#71e2c0}.bot:nth-child(5){--bot-color:#91a6c4}.bot:nth-child(6){--bot-color:#7ccfee}.bot:nth-child(7){--bot-color:#e49ac8}.bot:hover,.bot[aria-pressed=true]{border-color:var(--bot-color);background:linear-gradient(145deg,#22394d,#152a3a);box-shadow:0 0 0 2px #ffffff06,0 12px 30px #0004}.bot-head{display:flex;align-items:center;gap:8px}.agent-icon{color:var(--bot-color);width:27px;height:27px;background:#ffffff06;border:1px solid #ffffff10;border-radius:8px;display:grid;place-items:center;flex-shrink:0}.agent-icon svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.bot strong{font-size:13px;line-height:1.3}.badge{font-size:9px;letter-spacing:.07em;color:var(--accent);font-weight:650}.bot .badge{color:var(--bot-color)}.bot .activity{font-size:11px;line-height:1.45;color:#a8b9cf;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.bot time{font-size:9px;color:#7e95b0;margin-top:auto}.bot.pulse{border-color:#c2ffeb;box-shadow:0 0 24px #71e2c040}.bot:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:4px}.panel{background:linear-gradient(145deg,#131f30,#101925);border:1px solid var(--line);border-radius:18px;padding:22px}#detail{align-self:start;max-height:830px;overflow:auto;scrollbar-width:thin;scrollbar-color:#334d64 transparent}#detail>h2{margin-top:10px;font-size:24px}#detail>.badge{padding:5px 8px;border-radius:6px;background:#71e2c010;display:inline-block}.event{border-top:1px solid var(--line);padding:16px 0}.event b{font-size:12px}.event .badge{margin-top:6px}.event p{font-size:12px;margin:8px 0}.event time{font-size:10px;color:#7e95b0}details{margin-top:10px;font-size:11px;color:var(--muted)}summary{cursor:pointer}pre{font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere;background:#080f1a;padding:12px;border-radius:8px;color:#b7c6da}.legend{display:flex;gap:22px;flex-wrap:wrap;font-size:10px;color:var(--muted);margin:14px 0}.legend span:before{content:'';display:inline-block;width:22px;border-top:2px solid #57718c;margin-right:7px;vertical-align:middle}.legend span:last-child:before{border-top-style:dashed}.flow-status{border:1px solid #253449;background:#101c2b;border-radius:10px;padding:12px 14px;color:var(--muted);font-size:11px;min-height:52px;line-height:1.6}.flow-status b{color:var(--accent)}#updated{font-size:10px;color:#7e95b0}.controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:22px 0}button.control{border:1px solid #334961;background:#18283c;color:#cad7e8;border-radius:9px;padding:10px 14px;cursor:pointer;font:inherit;font-size:11px}button.control:hover{background:#21384d;border-color:#60819e}button.control[data-action=cycle]{background:#71e2c0;color:#0d2925;border-color:#71e2c0;font-weight:700}button.control[data-action=freeze]{color:#edb984}button:disabled{opacity:.5;cursor:wait}#action{font-size:11px;color:var(--muted)}.section{margin-top:24px}.section>p{font-size:12px;max-width:850px}.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}th{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:#7890ad;background:#0b1522}th,td{text-align:left;padding:14px 12px;border-bottom:1px solid #25344999;white-space:nowrap}td:first-child{font-weight:650;color:#e0e9f6}tr:hover td{background:#ffffff02}.data-state{font-size:9px;letter-spacing:.04em;padding:5px 7px;border:1px solid #344861;border-radius:6px;color:#a8b9cf}.data-state.DATA_RECEIVED{color:#83dfbb;background:#71e2c008;border-color:#71e2c023}.data-state.FEED_ERROR{color:#ff9fa7;border-color:#ff9fa733}.data-state.BUDGET_WAIT{color:#e8c27c}#error:not(:empty){padding:14px;margin-top:16px;background:#ff9fa70b;border:1px solid #ff9fa733;border-radius:10px;color:#ff9fa7}#feed{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}.footer{margin:30px 0 0;border-top:1px solid var(--line);padding:18px 0;color:#7086a1;font-size:10px;letter-spacing:.04em}@media(max-width:1200px){.desk-layout{grid-template-columns:1fr}#detail{max-height:600px}}@media(max-width:650px){main{padding:18px}.top{align-items:flex-start;flex-direction:column}.brand-mark{width:40px;height:40px}h1{font-size:28px}.metrics{grid-template-columns:repeat(2,1fr);gap:10px}.metric{padding:16px}.value{font-size:25px}.nav{gap:18px}.panel{padding:16px}#feed{grid-template-columns:1fr}.diagram{min-width:840px}.nav a{font-size:11px}}@media(prefers-reduced-motion:no-preference){.bot,button.control{transition:background .18s,border-color .18s,box-shadow .18s}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.packet{display:none}}
+</style></head><body><main>
+
+<div class="top"><div class="brand"><div class="brand-mark" aria-hidden="true">↗</div><div><span class="eyebrow">CONTROL ROOM / PAPER OPERATIONS</span><h1>Trading Desk</h1><p class="muted">Your team, decisions and paper account in one view.</p></div></div><span class="pill">PAPER ONLY · FREE DATA / 4H</span></div>
+
+<nav class="nav" aria-label="Dashboard sections"><a href="#agent-flow">Agent network</a><a href="#market-coverage">Market coverage</a><a href="#paper-ledger">Paper ledger</a><a href="#audit-feed">Audit feed</a></nav><div id="error" role="alert"></div><div id="metrics" class="metrics"></div>
+
+<div class="desk-layout"><section id="agent-flow"><span class="eyebrow">THE TEAM AT WORK</span><h2>Agent flow</h2><p class="muted">Select an agent to inspect its work. Moving lights follow new recorded messages between agents.</p><div class="flow-scroll"><div class="diagram"><span class="diagram-label">AUTONOMOUS PAPER DESK</span><svg id="links" class="links" viewBox="0 0 1000 680" aria-label="Agent communication connections" role="img"></svg><div id="bots" class="bots"></div></div></div><div class="legend"><span>Message route</span><span>Supervisor oversight</span></div><div id="flow-status" class="flow-status" role="status" aria-live="polite">Waiting for recorded communications.</div><p class="muted" id="updated"></p></section><aside id="detail" class="panel" aria-live="polite"></aside></div>
+
+<div class="controls"><button class="control" data-action="cycle">Run cycle now</button><button class="control" data-action="freeze">Freeze entries</button><button class="control" data-action="resume">Resume entries</button><button class="control" data-action="review">Reviewer snapshot</button><span id="action" role="status"></span></div>
+
+<section id="market-coverage" class="panel section"><h2>Market coverage</h2><p class="muted">Rotating free-data watchlist, not the complete Webull catalogue. Open positions checked every 15 minutes; other symbols rotate every 5 minutes. Crypto is observation only.</p><div id="coverage"></div></section>
+
+<section id="paper-ledger" class="panel section"><h2>Paper ledger</h2><div class="tablewrap" id="positions"></div></section>
+
+<section id="audit-feed" class="panel section"><h2>Desk audit feed</h2><p class="muted">Recorded events across the team. Bot activity reflects audit records and scheduler state.</p><div id="feed"></div></section>
+
+<footer class="footer">TRADING DESK · SIMULATED ORDERS · FREE DATA · USD ACCOUNT</footer></main><script>
+
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const money=x=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(x||0);
+
+const stamp=x=>x?new Date(x).toLocaleString():'No recorded event';
+
+const agentIcons=["<path d=\"M3 15v-4m5 4V7m5 8V3m5 12V8\"/>", "<path d=\"M2 13l5-5 4 3 7-8M13 3h5v5\"/>", "<path d=\"M10 2l7 3v5c0 4-7 8-7 8S3 14 3 10V5zM7 10l2 2 4-4\"/>", "<path d=\"M3 6h13l-3-3m3 3-3 3M17 14H4l3-3m-3 3 3 3\"/>", "<rect x=\"4\" y=\"3\" width=\"12\" height=\"15\" rx=\"2\"/><path d=\"M7 7h6m-6 4h6m-6 4h4\"/>", "<circle cx=\"10\" cy=\"10\" r=\"7\"/><path d=\"M10 6v4l3 2\"/>", "<path d=\"M4 17V3h12v14zM7 7h6m-6 3h6m-6 3h3\"/>"];
+const team=[
+
+{name:'Market Data',role:'Collects completed US and crypto watchlist candles within the free-data budget.'},
+
+{name:'Analyst',role:'Applies the fixed trend-breakout rules to completed four-hour candles.'},
+
+{name:'Risk & Compliance',role:'Checks position size, planned loss and account circuit breakers.'},
+
+{name:'Paper Trader',role:'Simulates entries and exits and maintains the paper position.'},
+
+{name:'Logger',role:'Persists desk events and decisions in the audit history.'},
+
+{name:'Supervisor',role:'Oversees the scheduler, freezes and recovery.'},
+
+{name:'Performance Reviewer',role:'Reviews completed trades, realized P/L and account performance.'}];
+
+let selected='Supervisor',snapshot=null,busy=false;
+
+function related(name){return snapshot.messages.filter(m=>name==='Logger'||m.sender===name||m.recipient===name||m.recipient==='ALL')}
+
+function botState(name){
+
+ const s=snapshot.status, latest=related(name)[0], sent=snapshot.messages.find(m=>m.sender===name);
+
+ if(name==='Supervisor')return {label:s.state.frozen?'FROZEN':s.scheduler_running?'RUNNING':'WAITING',text:s.state.freeze_reason||(s.scheduler_running?'Scheduler is running. Entries remain subject to risk checks.':'Scheduler is not running.'),latest};
+
+ if(name==='Market Data'){const c=s.coverage;return {label:sent?.type==='SYSTEM_ERROR'?'FEED ERROR':c?'SCANNING':'WAITING',text:c?c.instruments.filter(i=>i.last_success).length+' / '+c.instruments.length+' symbols have received data. '+c.credits_used_today+' / '+c.daily_request_cap+' daily requests used.':'Waiting for data.',latest}};
+
+ if(name==='Paper Trader'){const ps=s.open_positions||[];return {label:ps.length?'POSITIONS OPEN':'FLAT',text:ps.length?ps.length+' paper positions: '+ps.map(p=>p.symbol).join(', ')+'. Unrealized '+money(s.unrealized_pnl)+'.':'No open paper position.',latest}};
+
+ if(name==='Logger')return {label:'AUDIT HISTORY',text:snapshot.messages.length+' recent recorded events available.',latest};
+
+ if(name==='Performance Reviewer')return {label:'REVIEW',text:snapshot.review.closed_trades+' closed trades · Realized '+money(snapshot.review.realized_pnl)+'.',latest};
+
+ return {label:latest?.status||'WAITING',text:latest?.reason||'No recent recorded activity. Waiting for the next decision.',latest}
+
+}
+
+function event(m){return '<div class="event"><b>'+esc(m.sender)+' → '+esc(m.recipient)+'</b><div class="badge">'+esc(m.type)+' · '+esc(m.status)+'</div><p>'+esc(m.reason)+'</p><time>'+esc(stamp(m.ts))+'</time><details><summary>Decision data</summary><pre>'+esc(JSON.stringify(m.data,null,2))+'</pre></details></div>'}
+
+function renderDetail(){
+
+ const bot=team.find(b=>b.name===selected),state=botState(selected),s=snapshot.status;
+
+ let facts='';
+
+ if(selected==='Risk & Compliance')facts='<p>Maximum position '+money(s.rules.max_position)+' · Planned loss '+money(s.rules.max_planned_loss)+'<br>Portfolio: up to '+s.rules.max_open_positions+' positions · '+money(s.rules.max_portfolio_exposure)+' exposure<br>Daily loss stop '+money(s.rules.daily_loss_stop)+' · Drawdown freeze '+money(s.rules.drawdown_freeze)+'</p>';
+
+ if(selected==='Supervisor')facts='<p>Last scheduler cycle: '+esc(stamp(s.state.last_cycle))+'<br>Last newly processed candle: '+esc(s.last_processed_bar||'None')+'</p>';
+
+ if(selected==='Performance Reviewer')facts='<p>Closed trades: '+snapshot.review.closed_trades+' · Win rate: '+snapshot.review.win_rate_pct.toFixed(1)+'%<br>Realized P/L: '+money(snapshot.review.realized_pnl)+'</p>';
+
+ document.getElementById('detail').innerHTML='<span class="badge">'+esc(state.label)+'</span><h2>'+esc(selected)+'</h2><p class="muted">'+esc(bot.role)+'</p><p>'+esc(state.text)+'</p>'+facts+'<h3>Recent activity</h3>'+ (related(selected).slice(0,15).map(event).join('')||'<p class="muted">No events in the recent history. This does not indicate an error.</p>');
+
+}
+
+function renderCoverage(){const c=snapshot.status.coverage;if(!c){document.getElementById('coverage').textContent='Coverage unavailable.';return}document.getElementById('coverage').innerHTML='<p>Requests today: '+c.credits_used_today+' / '+c.daily_request_cap+' · New-symbol scans stop at '+c.scanner_cap+' to reserve exit capacity.</p><div class=tablewrap><table><tr><th>Symbol</th><th>Type</th><th>Mode</th><th>Data status</th><th>Last completed candle (New York)</th><th>Last successful fetch</th></tr>'+c.instruments.map(i=>'<tr><td>'+esc(i.symbol)+'</td><td>'+esc(i.asset)+'</td><td>'+(i.paper_enabled?'Paper eligible':'Observe only')+'</td><td title="'+esc(i.error)+'"><span class="data-state '+esc(i.status)+'">'+esc(i.status.replaceAll('_',' '))+'</span></td><td>'+esc(i.last_bar||'—')+'</td><td>'+esc(stamp(i.last_success))+'</td></tr>').join('')+'</table></div><p class=muted>Awaiting data/models: '+c.awaiting_data.map(esc).join(', ')+'. Disabled: '+c.disabled_features.map(esc).join(', ')+'.</p>'}
+
+const nodeLayout={
+
+ 'Market Data':[145,315], 'Analyst':[425,315], 'Risk & Compliance':[705,315],
+
+ 'Paper Trader':[705,565], 'Logger':[425,565], 'Performance Reviewer':[145,565], 'Supervisor':[425,105]
+
+};
+
+const routes=[['Market Data','Analyst'],['Analyst','Risk & Compliance'],['Risk & Compliance','Paper Trader'],['Paper Trader','Logger'],['Performance Reviewer','Supervisor'],['Market Data','Logger'],['Analyst','Paper Trader']];
+
+const seenMessages=new Set();let flowInitialized=false,flowGeneration=0;
+
+function routePath(from,to){
+
+ const a=nodeLayout[from],b=nodeLayout[to];if(!a||!b||from===to)return null;
+
+ // Route from card borders, with a central bend that keeps the direction visible.
+
+ const dx=b[0]-a[0],dy=b[1]-a[1],horizontal=Math.abs(dx)>Math.abs(dy);
+
+ const x1=a[0]+(horizontal?Math.sign(dx)*105:0),y1=a[1]+(horizontal?0:Math.sign(dy)*85);
+
+ const x2=b[0]-(horizontal?Math.sign(dx)*105:0),y2=b[1]-(horizontal?0:Math.sign(dy)*85);
+
+ return horizontal?`M ${x1} ${y1} C ${(x1+x2)/2} ${y1}, ${(x1+x2)/2} ${y2}, ${x2} ${y2}`:`M ${x1} ${y1} C ${x1} ${(y1+y2)/2}, ${x2} ${(y1+y2)/2}, ${x2} ${y2}`;
+
+}
+
+function drawLinks(){
+
+ let edges=routes.map(r=>[...r,false]);
+
+ for(const b of team)if(b.name!=='Supervisor')edges.push(['Supervisor',b.name,true]);
+
+ document.getElementById('links').innerHTML='<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7292aa"/></marker></defs>'+edges.map(([a,b,oversight])=>'<path class="link '+(oversight?'oversee':'')+'" d="'+routePath(a,b)+'" marker-end="url(#arrow)"><title>'+esc(a)+' → '+esc(b)+(oversight?' oversight':' message route')+'</title></path>').join('');
+
+}
+
+function animateMessage(m,generation){
+
+ if(generation!==flowGeneration)return;
+
+ const recipients=m.recipient==='ALL'?team.map(b=>b.name).filter(n=>n!==m.sender):[m.recipient];
+
+ const paths=recipients.map(to=>routePath(m.sender,to)).filter(Boolean);
+
+ if(!paths.length)return;
+
+ const svg=document.getElementById('links'),reduced=matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+ const group=document.createElementNS('http://www.w3.org/2000/svg','g');
+
  group.innerHTML=paths.map(d=>'<path class="link active" d="'+d+'"/>'+(reduced?'':'<circle class="packet" r="5"><animateMotion begin="indefinite" dur="2s" repeatCount="1" path="'+d+'"/></circle>')).join('');
  svg.appendChild(group);
  group.querySelectorAll('animateMotion').forEach(motion=>motion.beginElement());
- const names=[m.sender,...recipients];
- names.forEach(n=>{const index=team.findIndex(b=>b.name===n);document.getElementById('agent-'+index)?.classList.add('pulse')});
- document.getElementById('flow-status').innerHTML='<b>'+esc(m.sender)+' → '+esc(m.recipient)+'</b> · '+esc(m.type)+' · '+esc(m.data?.symbol||'')+'<br>'+esc(stamp(m.ts));
- setTimeout(()=>{group.remove();names.forEach(n=>{const index=team.findIndex(b=>b.name===n);document.getElementById('agent-'+index)?.classList.remove('pulse')})},2500);
-}
-function updateFlow(){
- drawLinks();flowGeneration++;const generation=flowGeneration;
- const fresh=snapshot.messages.filter(m=>!seenMessages.has(m.id) && (flowInitialized||Date.now()-Date.parse(m.ts)<15000));
- snapshot.messages.forEach(m=>seenMessages.add(m.id));flowInitialized=true;
- // Bound the replay to the newest messages; idle links stay still.
- fresh.slice(0,8).reverse().forEach((m,i)=>setTimeout(()=>animateMessage(m,generation),i*250));
- if(!fresh.length){const m=snapshot.messages[0];document.getElementById('flow-status').innerHTML=m?'<b>Last recorded message:</b> '+esc(m.sender)+' → '+esc(m.recipient)+' · '+esc(m.type)+'<br>'+esc(stamp(m.ts)):'No recorded communications yet.'}
-}
-
-function render(){
-
- const s=snapshot.status,st=s.state;
-
- document.getElementById('metrics').innerHTML=[['Paper equity',money(st.equity)],['Cash',money(st.cash)],['Unrealized P/L',money(s.unrealized_pnl)],['Desk status',st.frozen?'Frozen':s.scheduler_running?'Running':'Waiting']].map(([k,v])=>'<div class="metric"><span class="muted">'+k+'</span><strong class="value">'+v+'</strong></div>').join('');
-
- document.getElementById('bots').innerHTML=team.map((b,index)=>{const a=botState(b.name),xy=nodeLayout[b.name];return '<button id="agent-'+index+'" style="left:'+((xy[0]-105)/10)+'%;top:'+((xy[1]-85)/6.8)+'%" class="bot" data-bot="'+esc(b.name)+'" aria-pressed="'+(selected===b.name)+'"><span class="badge">'+esc(a.label)+'</span><strong>'+esc(b.name)+'</strong><span class="activity">'+esc(a.text)+'</span><time>'+esc(stamp(a.latest?.ts))+'</time></button>'}).join('');
-
- renderDetail();renderCoverage();updateFlow();
-
- document.getElementById('positions').innerHTML=snapshot.positions.length?'<table><thead><tr><th>Symbol</th><th>Status</th><th>Entry</th><th>Quantity</th><th>Exit</th><th>Realized P/L</th></tr></thead><tbody>'+snapshot.positions.map(p=>'<tr><td>'+esc(p.symbol)+'</td><td>'+esc(p.status)+'</td><td>'+money(p.entry_price)+'</td><td>'+p.qty.toFixed(4)+'</td><td>'+(p.exit_price==null?'—':money(p.exit_price))+'</td><td>'+(p.realized_pnl==null?'—':money(p.realized_pnl))+'</td></tr>').join('')+'</tbody></table>':'No paper positions recorded.';
-
- document.getElementById('feed').innerHTML=snapshot.messages.slice(0,30).map(event).join('')||'<p>No events yet.</p>';
-
- document.getElementById('updated').textContent='Updated '+new Date().toLocaleTimeString()+' · Refreshes every 5 seconds · Scheduler polls every 5 minutes';
-
-}
-
-async function get(path){const r=await fetch(path);if(!r.ok)throw Error(r.status===401?'Sign in again to view this desk.':'Could not load desk data ('+r.status+').');return r.json()}
-
-async function refresh(){if(busy)return;busy=true;try{const [status,messages,positions]=await Promise.all(['/status','/messages?limit=200','/positions'].map(get));const closed=positions.filter(p=>p.status==='CLOSED'),wins=closed.filter(p=>p.realized_pnl>0);const review={closed_trades:closed.length,realized_pnl:closed.reduce((n,p)=>n+(p.realized_pnl||0),0),win_rate_pct:closed.length?wins.length/closed.length*100:0};snapshot={status,messages,positions,review};render();document.getElementById('error').textContent=''}catch(e){document.getElementById('error').textContent=e.message+' Displayed values may be out of date.'}finally{busy=false}}
-
-document.getElementById('bots').addEventListener('click',e=>{const b=e.target.closest('[data-bot]');if(b){selected=b.dataset.bot;render();if(matchMedia('(max-width:1050px)').matches)document.getElementById('detail').scrollIntoView({behavior:'auto',block:'start'})}});
-
-document.querySelector('.controls').addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(!b)return;b.disabled=true;try{let r;if(b.dataset.action==='review'){r=await get('/review')}else{const token=prompt('Enter your control token for this action');if(!token)return;const res=await fetch('/'+b.dataset.action,{method:'POST',headers:{'X-Control-Token':token}});r=await res.json();if(!res.ok)throw Error(r.detail||'Action failed')}document.getElementById('action').textContent=JSON.stringify(r);await refresh()}catch(err){document.getElementById('action').textContent=err.message}finally{b.disabled=false}});
-
-refresh();setInterval(refresh,5000);
-
-</script></body></html>
-
+ const names=[m.sender,...recipients];
+
+ names.forEach(n=>{const index=team.findIndex(b=>b.name===n);document.getElementById('agent-'+index)?.classList.add('pulse')});
+
+ document.getElementById('flow-status').innerHTML='<b>'+esc(m.sender)+' → '+esc(m.recipient)+'</b> · '+esc(m.type)+' · '+esc(m.data?.symbol||'')+'<br>'+esc(stamp(m.ts));
+
+ setTimeout(()=>{group.remove();names.forEach(n=>{const index=team.findIndex(b=>b.name===n);document.getElementById('agent-'+index)?.classList.remove('pulse')})},2500);
+
+}
+
+function updateFlow(){
+
+ drawLinks();flowGeneration++;const generation=flowGeneration;
+
+ const fresh=snapshot.messages.filter(m=>!seenMessages.has(m.id) && (flowInitialized||Date.now()-Date.parse(m.ts)<15000));
+
+ snapshot.messages.forEach(m=>seenMessages.add(m.id));flowInitialized=true;
+
+ // Bound the replay to the newest messages; idle links stay still.
+
+ fresh.slice(0,8).reverse().forEach((m,i)=>setTimeout(()=>animateMessage(m,generation),i*250));
+
+ if(!fresh.length){const m=snapshot.messages[0];document.getElementById('flow-status').innerHTML=m?'<b>Last recorded message:</b> '+esc(m.sender)+' → '+esc(m.recipient)+' · '+esc(m.type)+'<br>'+esc(stamp(m.ts)):'No recorded communications yet.'}
+
+}
+
+function render(){
+
+ const s=snapshot.status,st=s.state;
+
+ document.getElementById('metrics').innerHTML=[['Paper equity',money(st.equity)],['Cash',money(st.cash)],['Unrealized P/L',money(s.unrealized_pnl)],['Desk status',st.frozen?'Frozen':s.scheduler_running?'Running':'Waiting']].map(([k,v])=>'<div class="metric"><span class="muted">'+k+'</span><strong class="value '+(k==='Unrealized P/L'?(s.unrealized_pnl<0?'negative':'positive'):'')+'">'+v+'</strong><span class="metric-note">'+({'Paper equity':'Cash + marked positions','Cash':'Available paper balance','Unrealized P/L':'Open positions · USD','Desk status':'Autonomous paper operation'}[k])+'</span></div>').join('');
+
+ document.getElementById('bots').innerHTML=team.map((b,index)=>{const a=botState(b.name),xy=nodeLayout[b.name];return '<button id="agent-'+index+'" style="left:'+((xy[0]-105)/10)+'%;top:'+((xy[1]-85)/6.8)+'%" class="bot" data-bot="'+esc(b.name)+'" aria-pressed="'+(selected===b.name)+'"><span class="badge">'+esc(a.label)+'</span><span class="bot-head"><span class="agent-icon" aria-hidden="true"><svg viewBox="0 0 20 20">'+agentIcons[index]+'</svg></span><strong>'+esc(b.name)+'</strong></span><span class="activity">'+esc(a.text)+'</span><time>'+esc(stamp(a.latest?.ts))+'</time></button>'}).join('');
+
+ renderDetail();renderCoverage();updateFlow();
+
+ document.getElementById('positions').innerHTML=snapshot.positions.length?'<table><thead><tr><th>Symbol</th><th>Status</th><th>Entry</th><th>Quantity</th><th>Exit</th><th>Realized P/L</th></tr></thead><tbody>'+snapshot.positions.map(p=>'<tr><td>'+esc(p.symbol)+'</td><td>'+esc(p.status)+'</td><td>'+money(p.entry_price)+'</td><td>'+p.qty.toFixed(4)+'</td><td>'+(p.exit_price==null?'—':money(p.exit_price))+'</td><td>'+(p.realized_pnl==null?'—':money(p.realized_pnl))+'</td></tr>').join('')+'</tbody></table>':'No paper positions recorded.';
+
+ document.getElementById('feed').innerHTML=snapshot.messages.slice(0,30).map(event).join('')||'<p>No events yet.</p>';
+
+ document.getElementById('updated').textContent='Updated '+new Date().toLocaleTimeString()+' · Refreshes every 5 seconds · Scheduler polls every 5 minutes';
+
+}
+
+async function get(path){const r=await fetch(path);if(!r.ok)throw Error(r.status===401?'Sign in again to view this desk.':'Could not load desk data ('+r.status+').');return r.json()}
+
+async function refresh(){if(busy)return;busy=true;try{const [status,messages,positions]=await Promise.all(['/status','/messages?limit=200','/positions'].map(get));const closed=positions.filter(p=>p.status==='CLOSED'),wins=closed.filter(p=>p.realized_pnl>0);const review={closed_trades:closed.length,realized_pnl:closed.reduce((n,p)=>n+(p.realized_pnl||0),0),win_rate_pct:closed.length?wins.length/closed.length*100:0};snapshot={status,messages,positions,review};render();document.getElementById('error').textContent=''}catch(e){document.getElementById('error').textContent=e.message+' Displayed values may be out of date.'}finally{busy=false}}
+
+document.getElementById('bots').addEventListener('click',e=>{const b=e.target.closest('[data-bot]');if(b){selected=b.dataset.bot;render();if(matchMedia('(max-width:1050px)').matches)document.getElementById('detail').scrollIntoView({behavior:'auto',block:'start'})}});
+
+document.querySelector('.controls').addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(!b)return;b.disabled=true;try{let r;if(b.dataset.action==='review'){r=await get('/review')}else{const token=prompt('Enter your control token for this action');if(!token)return;const res=await fetch('/'+b.dataset.action,{method:'POST',headers:{'X-Control-Token':token}});r=await res.json();if(!res.ok)throw Error(r.detail||'Action failed')}document.getElementById('action').textContent=JSON.stringify(r);await refresh()}catch(err){document.getElementById('action').textContent=err.message}finally{b.disabled=false}});
+
+refresh();setInterval(refresh,5000);
+
+</script></body></html>
+
