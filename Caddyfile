@@ -1,0 +1,4 @@
+{$TCR_DOMAIN} {
+    encode gzip
+    reverse_proxy control-room:8000
+}

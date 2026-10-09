@@ -1,0 +1,6 @@
+[Unit]
+Description=Restart unhealthy paper trading application
+After=docker.service
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /opt/trading-control-room/ops/watchdog.sh

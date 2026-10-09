@@ -1,0 +1,7 @@
+[Unit]
+Description=Consistent backup of the paper ledger
+[Service]
+Type=oneshot
+User=ubuntu
+UMask=0077
+ExecStart=/usr/bin/python3 /opt/trading-control-room/ops/backup.py

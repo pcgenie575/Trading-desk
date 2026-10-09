@@ -1,0 +1,11 @@
+services:
+  control-room:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - tcr_data:/data
+volumes:
+  tcr_data:

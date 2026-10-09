@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+data/
+backups/
+*.key
+*.pem
+dashboard-access.txt
+*.db
+*.db-*
+__pycache__/
+.venv/
