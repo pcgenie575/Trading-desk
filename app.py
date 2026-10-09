@@ -418,47 +418,8 @@ def run_backtest(outputsize:int=500):
 
 @app.get("/",response_class=HTMLResponse)
 def home():
-    return HTMLResponse(r"""
-<!doctype html><html><head><meta charset="utf-8"><title>Trading Control Room</title>
-<style>
-body{font-family:system-ui;background:#0d1117;color:#e6edf3;margin:0;padding:22px}
-h1{margin:0 0 8px}.muted{color:#8b949e}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.card{background:#161b22;border:1px solid #30363d;border-radius:14px;padding:15px;margin-bottom:12px}
-.good{color:#3fb950}.bad{color:#f85149}.warn{color:#d29922}.msg{padding:10px;border-top:1px solid #30363d}
-button{padding:9px 12px;margin-right:8px;border-radius:8px;border:0}table{width:100%;border-collapse:collapse}
-td,th{padding:7px;text-align:left;border-bottom:1px solid #30363d}
-</style></head><body>
-<h1>Trading Control Room <span class="muted">Paper Operations</span></h1>
-<div id="summary" class="card"></div>
-<div class="grid">
-<div class="card"><b>Supervisor</b><p>Health, freezes, recovery</p></div>
-<div class="card"><b>Analyst</b><p>Fixed SPY 4h strategy</p></div>
-<div class="card"><b>Risk & Compliance</b><p>Hard-coded limits</p></div>
-<div class="card"><b>Paper Trader</b><p>Entries, exits, P/L</p></div>
-<div class="card"><b>Logger</b><p>Persistent audit trail</p></div>
-<div class="card"><b>Performance Reviewer</b><p>Results and learning</p></div>
-</div>
-<div class="card"><button onclick="cycle()">Run cycle now</button><button onclick="freeze()">Freeze</button><button onclick="resume()">Resume</button><button onclick="review()">Reviewer snapshot</button><span id="action"></span></div>
-<div class="card"><h2>Positions</h2><div id="positions"></div></div>
-<div class="card"><h2>Live communication / audit feed</h2><div id="feed"></div></div>
-<script>
-const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let token=localStorage.getItem('tcr_token')||'';
-async function post(path){let r=await fetch(path,{method:'POST',headers:{'X-Control-Token':token}});if(r.status==401){token=prompt('Control token')||'';localStorage.setItem('tcr_token',token);return post(path)}return r.json()}
-async function refresh(){
- let s=await (await fetch('/status')).json(), st=s.state, p=s.open_position;
- summary.innerHTML=`System: <b class="${st.frozen?'bad':'good'}">${st.frozen?'FROZEN':'ACTIVE'}</b> · Scheduler: <b class="${s.scheduler_running?'good':'warn'}">${s.scheduler_running?'RUNNING':'WAITING'}</b> · Equity <b>$${st.equity.toFixed(2)}</b> · Cash $${st.cash.toFixed(2)} · Daily realized P/L <b>$${s.daily_realized_pnl.toFixed(2)}</b> · Unrealized <b>$${s.unrealized_pnl.toFixed(2)}</b>${st.freeze_reason?' · '+esc(st.freeze_reason):''}`;
- let ps=await (await fetch('/positions')).json();
- positions.innerHTML=ps.length?`<table><tr><th>Status</th><th>Entry</th><th>Qty</th><th>Exit</th><th>P/L</th><th>Reason</th></tr>${ps.map(x=>`<tr><td>${esc(x.status)}</td><td>${x.entry_price?.toFixed(2)||''}</td><td>${x.qty?.toFixed(4)||''}</td><td>${x.exit_price?.toFixed(2)||''}</td><td>${x.realized_pnl?.toFixed(2)||''}</td><td>${x.exit_reason||''}</td></tr>`).join('')}</table>`:'No positions yet.';
- let m=await (await fetch('/messages?limit=100')).json();
- feed.innerHTML=m.map(x=>`<div class="msg"><b>${esc(x.sender)} → ${esc(x.recipient)}</b> · ${esc(x.type)} · ${esc(x.status)}<br>${esc(x.reason)}<br><span class="muted">${esc(x.ts)}</span></div>`).join('');
-}
-async function cycle(){action.textContent=JSON.stringify(await post('/cycle'));refresh()}
-async function freeze(){action.textContent=JSON.stringify(await post('/freeze'));refresh()}
-async function resume(){action.textContent=JSON.stringify(await post('/resume'));refresh()}
-async function review(){let r=await(await fetch('/review')).json();action.textContent=`Reviewer: ${r.closed_trades} closed trades, P/L $${r.realized_pnl.toFixed(2)}, win rate ${r.win_rate_pct.toFixed(1)}%`;refresh()}
-refresh();setInterval(refresh,5000);
-</script></body></html>""")
+    from pathlib import Path
+    return HTMLResponse(Path(__file__).with_name('dashboard.html').read_text(encoding='utf-8'))
 
 
 @app.middleware("http")
