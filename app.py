@@ -1,9 +1,12 @@
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.responses import HTMLResponse, Response
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 import sqlite3, uuid, json, threading, os, math, secrets, base64
 from functools import wraps
 from dataclasses import asdict
+from execution import COSTS, fill, sized_entry
+from exposure import check as exposure_check, LIMITS as EXPOSURE_LIMITS
+from research_engine import compare, validate_bars, fingerprint, PROTOCOL
 from urllib.parse import urlparse
 from typing import Literal
 from pydantic import BaseModel, Field
@@ -115,6 +118,11 @@ def init_db():
       review_status TEXT NOT NULL, followed_rules TEXT NOT NULL, notes TEXT NOT NULL,
       rule_break TEXT NOT NULL DEFAULT 'none'
     );
+    CREATE TABLE IF NOT EXISTS pending_orders(symbol TEXT PRIMARY KEY,side TEXT,signal_time TEXT,payload TEXT);
+    CREATE TABLE IF NOT EXISTS research_runs(id TEXT PRIMARY KEY,ts TEXT,symbol TEXT,dataset_hash TEXT,protocol TEXT,test_start TEXT,test_end TEXT,status TEXT,payload TEXT,dataset TEXT);
+    CREATE TABLE IF NOT EXISTS forward_plans(id TEXT PRIMARY KEY,symbol TEXT,registered_at TEXT,protocol TEXT,status TEXT,run_id TEXT);
+    CREATE TABLE IF NOT EXISTS weekly_reports(week TEXT PRIMARY KEY,ts TEXT,payload TEXT);
+    CREATE TABLE IF NOT EXISTS equity_history(ts TEXT PRIMARY KEY,equity REAL,peak REAL);
     CREATE TABLE IF NOT EXISTS knowledge_entries(
       id TEXT PRIMARY KEY, version INTEGER NOT NULL, updated_at TEXT NOT NULL,
       title TEXT NOT NULL, kind TEXT NOT NULL, status TEXT NOT NULL,
@@ -126,6 +134,9 @@ def init_db():
       payload TEXT NOT NULL, PRIMARY KEY(entry_id,version)
     );
     """)
+    for name in ('entry_fee','exit_fee','estimated_costs'):
+        if name not in {r['name'] for r in con.execute('PRAGMA table_info(positions)')}:
+            con.execute('ALTER TABLE positions ADD COLUMN '+name+' REAL NOT NULL DEFAULT 0')
     if 'rule_break' not in {r['name'] for r in con.execute('PRAGMA table_info(trade_reviews)')}:
         con.execute("ALTER TABLE trade_reviews ADD COLUMN rule_break TEXT NOT NULL DEFAULT 'none'")
     defaults = {
@@ -242,6 +253,7 @@ def update_equity(mark):
     set_state("equity",equity); set_state("peak_equity",peak)
     if peak-equity >= RULES["drawdown_freeze"] and not s["frozen"]:
         freeze_system(f"Drawdown circuit breaker reached: ${peak-equity:.2f}.")
+    con=db();con.execute('INSERT OR REPLACE INTO equity_history VALUES (?,?,?)',(utcnow(),equity,peak));con.commit();con.close()
     return equity, peak
 
 @atomic
@@ -255,40 +267,52 @@ def risk_check(candidate):
     if not all(isinstance(candidate.get(k), (int, float)) and math.isfinite(candidate[k]) and candidate[k] > 0 for k in ("quantity", "position_value", "planned_loss", "stop", "entry_reference")):
         return False, "Invalid candidate values."
     if candidate["stop"] >= candidate["entry_reference"]: return False, "Invalid protective stop."
+    risk_value=candidate.get('cash_cost',candidate['position_value']);risk_loss=candidate.get('cost_adjusted_risk',candidate['planned_loss'])
     s=get_state()
     if s["peak_equity"]-s["equity"] >= RULES["drawdown_freeze"]: return False, "Drawdown circuit breaker reached."
     if s["frozen"]: return False, "System is frozen."
     if open_position(): return False, "An open position already exists for this symbol."
     active=open_positions()
     if len(active)>=MAX_OPEN: return False, "Maximum open positions reached."
-    if sum(p["position_value"] for p in active)+candidate["position_value"] > MAX_EXPOSURE+1e-6: return False, "Portfolio exposure limit reached."
-    if sum(p["planned_loss"] for p in active)+candidate["planned_loss"] > MAX_PORTFOLIO_PLANNED_LOSS+1e-6: return False, "Portfolio planned-loss limit reached."
-    if candidate["position_value"]>s["cash"]: return False, "Insufficient paper cash."
+    if sum(p["position_value"] for p in active)+risk_value > MAX_EXPOSURE+1e-6: return False, "Portfolio exposure limit reached."
+    if sum(p["planned_loss"] for p in active)+risk_loss > MAX_PORTFOLIO_PLANNED_LOSS+1e-6: return False, "Portfolio planned-loss limit reached."
+    if risk_value>s["cash"]: return False, "Insufficient paper cash."
     if not INSTRUMENTS.get(current_symbol(),{}).get("paper_enabled"): return False, "Instrument is observation only."
     if today_realized() <= -RULES["daily_loss_stop"]: return False, "Daily loss circuit breaker reached."
-    if candidate.get("position_value",0) > RULES["max_position"]+1e-6: return False, "Maximum position exceeded."
-    if candidate.get("planned_loss",0) > RULES["max_planned_loss"]+1e-6: return False, "Maximum planned loss exceeded."
+    if risk_value > RULES["max_position"]+1e-6: return False, "Maximum position exceeded."
+    if risk_loss > RULES["max_planned_loss"]+1e-6: return False, "Maximum planned loss exceeded."
     if candidate.get("quantity",0) <= 0: return False, "Invalid quantity."
-    return True, "All deterministic risk checks passed."
+    series={}
+    con=db();cutoff=(datetime.now(ZoneInfo('America/New_York')).replace(tzinfo=None)-timedelta(days=10)).isoformat(sep=' ')
+    for symbol in {current_symbol(),*(p['symbol'] for p in active)}:
+        rows=con.execute("SELECT bar_time,close FROM candles WHERE symbol=? AND interval='4h' ORDER BY bar_time DESC LIMIT 100",(symbol,)).fetchall()
+        series[symbol]={r['bar_time']:r['close'] for r in rows} if rows and rows[0]['bar_time']>=cutoff else {}
+    con.close()
+    allowed,details=exposure_check(current_symbol(),risk_value,active,series)
+    if not allowed:return False,details
+    return True, "All deterministic risk and concentration checks passed."
 
 @atomic
 def paper_enter(candidate, bar):
     trade_id=str(uuid.uuid4())
-    entry=float(bar["close"])*(1+CONFIG.slippage_bps/10000)
-    qty=min(float(candidate["quantity"]), RULES["max_position"]/entry, RULES["max_planned_loss"]/max(entry-float(candidate["stop"]), 1e-9))
-    value=entry*qty
-    s=get_state()
-    if value > s["cash"]: qty=s["cash"]/entry; value=entry*qty
-    if qty <= 0: return None
-    planned=qty*max(0,entry-float(candidate["stop"]))
+    raw=float(bar.get('fill_open',bar['close']))
+    f=sized_entry(raw,float(candidate['stop']),get_state()['cash'],max_qty=float(candidate['quantity']))
+    if not f:
+        emit('Risk & Compliance','Paper Trader','FILL_REJECTED','BLOCKED','Gap or costs invalidate the planned entry.')
+        return None
+    entry=f['price'];qty=f['qty'];value=f['cash'];planned=f['planned_loss'];s=get_state()
+    checked=dict(candidate,entry_reference=entry,quantity=qty,position_value=entry*qty,planned_loss=qty*(entry-candidate['stop']),cash_cost=value,cost_adjusted_risk=planned)
+    approved,reason=risk_check(checked)
+    if not approved:emit('Risk & Compliance','Paper Trader','FILL_REJECTED','BLOCKED',reason);return None
     con=db()
     con.execute("""INSERT INTO positions
-      (id,symbol,status,entry_time,entry_price,qty,stop,position_value,planned_loss)
-      VALUES (?,?,?,?,?,?,?,?,?)""",
-      (trade_id,current_symbol(),"OPEN",bar["datetime"],entry,qty,candidate["stop"],value,planned))
+      (id,symbol,status,entry_time,entry_price,qty,stop,position_value,planned_loss,entry_fee,estimated_costs)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+      (trade_id,current_symbol(),"OPEN",bar["datetime"],entry,qty,candidate["stop"],value,planned,f["fee"],f["total_cost"]))
     context={"strategy":"Trend Breakout v1","mode":"paper","captured_at":utcnow(),
              "candidate":candidate,"strategy_config":asdict(CONFIG),"risk_rules":dict(RULES),
              "instrument":dict(INSTRUMENTS[current_symbol()])}
+    context['execution']={'model':asdict(COSTS),'entry':f,'signal_time':candidate.get('signal_time'),'fill_basis':'Next eligible candle open; reconstructed after delayed candle arrival' if 'fill_open' in bar else 'Direct test/helper fill'}
     context['curriculum_version']=CURRICULUM_VERSION
     context['knowledge']={agent:knowledge_for_agent(agent,full=True) for agent in ('Analyst','Risk & Compliance','Paper Trader')}
     con.execute("INSERT INTO trade_context VALUES (?,?)",(trade_id,json.dumps(context)))
@@ -301,18 +325,17 @@ def paper_enter(candidate, bar):
 
 @atomic
 def paper_exit(pos, raw_price, bar_time, reason):
-    exit_price=float(raw_price)*(1-CONFIG.slippage_bps/10000)
-    proceeds=pos["qty"]*exit_price
+    f=fill(float(raw_price),pos['qty'],'sell');exit_price=f['price'];proceeds=f['cash']
     pnl=proceeds-pos["position_value"]
     con=db()
     con.execute("""UPDATE positions SET status='CLOSED',exit_time=?,exit_price=?,
-      realized_pnl=?,exit_reason=? WHERE id=?""",(bar_time,exit_price,pnl,reason,pos["id"]))
+      realized_pnl=?,exit_reason=?,exit_fee=?,estimated_costs=estimated_costs+? WHERE id=?""",(bar_time,exit_price,pnl,reason,f["fee"],f["total_cost"],pos["id"]))
     con.commit(); con.close()
     s=get_state(); set_state("cash",s["cash"]+proceeds)
     add_daily_pnl(pnl)
     emit("Paper Trader","Logger","PAPER_EXIT","CLOSED",
          f"Closed simulated {pos['symbol']} position. Realized P/L ${pnl:.2f}.",
-         {"exit":exit_price,"pnl":pnl,"reason":reason},pos["id"])
+         {"exit":exit_price,"pnl":pnl,"reason":reason,"costs":f},pos["id"])
     if today_realized() <= -RULES["daily_loss_stop"]:
         freeze_system(f"Daily realized loss reached ${-today_realized():.2f}.")
     return pnl
@@ -326,7 +349,8 @@ def process_exit(bars):
     if float(bar["low"]) <= pos["stop"]:
         return paper_exit(pos,min(pos["stop"],float(bar["open"])),bar["datetime"],"PROTECTIVE_STOP")
     if exit_ma is not None and float(bar["close"]) < exit_ma:
-        return paper_exit(pos,bar["close"],bar["datetime"],"CLOSE_BELOW_20_SMA")
+        con=db();con.execute('INSERT OR REPLACE INTO pending_orders VALUES (?,?,?,?)',(current_symbol(),'sell',bar['datetime'],json.dumps({'trade_id':pos['id'],'reason':'CLOSE_BELOW_20_SMA','queued_at':utcnow()})));con.commit();con.close()
+        emit('Analyst','Paper Trader','EXIT_QUEUED','PENDING','MA exit waits for a later eligible candle open.')
     return None
 
 def reviewer_snapshot():
@@ -364,6 +388,7 @@ def autonomous_cycle(force=False):
     with _cycle_lock:
         set_state('last_cycle',utcnow())
         active={p['symbol'] for p in open_positions()}
+        con=db();active.update(r['symbol'] for r in con.execute('SELECT symbol FROM pending_orders'));con.close()
         symbols=list(INSTRUMENTS); raw=state_raw(); cursor=int(raw.get('scan_cursor',0))%len(symbols)
         scanner=symbols[cursor];set_state('scan_cursor',(cursor+1)%len(symbols))
         selected=list(sorted(active))
@@ -399,6 +424,8 @@ def autonomous_cycle(force=False):
                 emit('Market Data','Logger','SYSTEM_ERROR','NO_ACTION',reason)
                 results[symbol]={'status':'ERROR'}
             finally:_local.symbol='SPY'
+        maybe_weekly_report()
+        maybe_forward_research()
         return results.get('SPY',{'status':'SCAN_CYCLE','results':results})
 
 @atomic
@@ -407,11 +434,32 @@ def process_bars(bars, allow_entry=True):
         processed=state_raw().get(checkpoint_key(), "")
         if processed and bars[-1]["datetime"] <= processed:
             return {"status":"NO_NEW_BAR","bar_time":bars[-1]["datetime"]}
-        update_equity(float(bars[-1]["close"]))
+        update_equity(float(bars[-1]["open"]))
         set_state(checkpoint_key(), bars[-1]["datetime"])
         set_state("last_success", utcnow())
         emit("Market Data","Analyst","NEW_BAR","RECEIVED",f"New completed {current_symbol()} 4-hour candle received.",{"bar":bars[-1]})
 
+        con=db();order=con.execute('SELECT * FROM pending_orders WHERE symbol=?',(current_symbol(),)).fetchone();con.close()
+        order_payload=json.loads(order['payload']) if order else {}
+        opened_utc=datetime.fromisoformat(bars[-1]['datetime']).replace(tzinfo=ZoneInfo('America/New_York')).astimezone(timezone.utc)
+        eligible=order and opened_utc>=datetime.fromisoformat(order_payload.get('queued_at',datetime.fromisoformat(order['signal_time']).replace(tzinfo=ZoneInfo('America/New_York')).astimezone(timezone.utc).isoformat())) and datetime.fromisoformat(bars[-1]['datetime'])>=datetime.fromisoformat(order['signal_time'])+timedelta(hours=4,minutes=15)
+        if eligible:
+            con=db();con.execute('DELETE FROM pending_orders WHERE symbol=?',(current_symbol(),));con.commit();con.close()
+            payload=json.loads(order['payload']);bar=bars[-1]
+            if order['side']=='sell':
+                pos=open_position()
+                if pos and pos['id']==payload['trade_id']:paper_exit(pos,min(float(bar['open']),pos['stop']),bar['datetime'],payload['reason']) if float(bar['open'])<pos['stop'] else paper_exit(pos,float(bar['open']),bar['datetime'],payload['reason'])
+            else:
+                stale=datetime.fromisoformat(bar['datetime'])-datetime.fromisoformat(order['signal_time'])>timedelta(days=7)
+                if not stale and INSTRUMENTS[current_symbol()]['paper_enabled']:
+                    tid=paper_enter(payload,dict(bar,fill_open=float(bar['open'])))
+                    if tid:
+                        process_exit(bars);update_equity(float(bar['close']));return {'status':'PAPER_ENTRY','trade_id':tid}
+                else:emit('Supervisor','Paper Trader','ORDER_EXPIRED','NO_ACTION','Pending entry expired.')
+            update_equity(float(bar['close']))
+            return {'status':'ORDER_PROCESSED'}
+        update_equity(float(bars[-1]["close"]))
+        if order and order['side']=='buy':return {'status':'ORDER_WAIT','reason':'Next candle open must be after the recorded decision time.'}
         # Existing position gets exit priority.
         if open_position():
             pnl=process_exit(bars)
@@ -436,13 +484,17 @@ def process_bars(bars, allow_entry=True):
         emit("Risk & Compliance","Paper Trader","APPROVED" if approved else "REJECTED",
              "APPROVED" if approved else "BLOCKED",reason,sig)
         if approved:
-            tid=paper_enter(sig,bars[-1])
-            update_equity(float(bars[-1]["close"]))
-            return {"status":"PAPER_ENTRY","trade_id":tid}
+            sig['signal_time']=bars[-1]['datetime'];sig['queued_at']=utcnow()
+            con=db();con.execute('INSERT OR REPLACE INTO pending_orders VALUES (?,?,?,?)',(current_symbol(),'buy',bars[-1]['datetime'],json.dumps(sig)));con.commit();con.close()
+            emit('Paper Trader','Logger','ENTRY_QUEUED','PENDING','Signal waits for a later eligible candle open; costs and risk are rechecked at fill.',sig)
+            return {'status':'ENTRY_QUEUED'}
         return {"status":"REJECTED","reason":reason}
 def scheduler_loop():
     while not _scheduler_stop.is_set():
-        autonomous_cycle()
+        try:autonomous_cycle()
+        except Exception as e:
+            try:freeze_system('Unexpected scheduler failure: '+type(e).__name__+'; operator review required.')
+            except Exception:pass
         _scheduler_stop.wait(POLL_SECONDS)
 
 def start_scheduler():
@@ -462,6 +514,10 @@ def startup():
         raise RuntimeError("Control token and dashboard password are required.")
     os.makedirs(os.path.dirname(os.path.abspath(DB)), exist_ok=True)
     init_db()
+    # Interrupted experiments remain retained and cannot masquerade as completed trials.
+    con=db();con.execute("UPDATE research_runs SET status='INTERRUPTED' WHERE status='RUNNING'");con.commit();con.close()
+    register_forward_plan()
+    maybe_weekly_report()
     training=curriculum()
     if not training['self_check']['passed']:raise RuntimeError('Curriculum self-check failed.')
     emit('Supervisor','ALL','CURRICULUM_LOADED','ACTIVE','Book-informed rule curriculum loaded.',
@@ -477,10 +533,10 @@ def status():
     pos=open_position()
     s=get_state()
     raw=state_raw()
-    unrealized=sum(p["qty"]*(float(raw.get("mark:"+p["symbol"],raw.get("last_price",p["entry_price"]) if p["symbol"]=="SPY" else p["entry_price"]))-p["entry_price"]) for p in open_positions())
+    unrealized=sum(p["qty"]*(float(raw.get("mark:"+p["symbol"],raw.get("last_price",p["entry_price"]) if p["symbol"]=="SPY" else p["entry_price"])))-p["position_value"] for p in open_positions())
     return {"last_success":state_raw().get("last_success", ""), "last_processed_bar":state_raw().get(checkpoint_key(), ""), "rules":RULES,"state":s,"daily_realized_pnl":today_realized(),
             "open_position":pos,"open_positions":open_positions(),"coverage":coverage(),"training":curriculum(),"unrealized_pnl":unrealized,
-            "scheduler_running":bool(_scheduler_thread and _scheduler_thread.is_alive())}
+            "execution_costs":asdict(COSTS),"exposure_limits":EXPOSURE_LIMITS,"pending_orders":pending_orders(),"scheduler_running":bool(_scheduler_thread and _scheduler_thread.is_alive())}
 
 @app.get('/coverage')
 def coverage():
@@ -636,21 +692,10 @@ def resume(x_control_token: str | None = Header(default=None)):
     emit("Supervisor","ALL","RESUME","ACTIVE","Manual supervisor resume.",{})
     return {"ok":True}
 
-@app.post("/backtest")
-def run_backtest(outputsize:int=500, x_control_token: str | None = Header(default=None)):
+@app.post('/backtest')
+def run_backtest(outputsize:int=500,x_control_token: str | None=Header(default=None)):
     require_control(x_control_token)
-    if not reserve_credit():
-        raise HTTPException(429,"Free data request budget is exhausted; try later.")
-    try:
-        bars=TwelveDataAdapter().latest_completed_bars("SPY","4h",min(max(outputsize,100),5000))
-        report=backtest(bars)
-        if "error" not in report:
-            emit("Performance Reviewer","Supervisor","BACKTEST_REPORT","REVIEW",
-                 "Historical backtest completed; this does not establish future performance.",
-                 {k:v for k,v in report.items() if k not in ("trade_log","equity_curve")})
-        return report
-    except MarketDataError as e:
-        return {"error":str(e)}
+    return run_research(ResearchInput(symbol='SPY',use_cached=True),x_control_token)
 
 @app.get("/",response_class=HTMLResponse)
 def home():
@@ -703,3 +748,127 @@ def health():
 def shutdown():
     _scheduler_stop.set()
     if _scheduler_thread: _scheduler_thread.join(timeout=20)
+
+
+def pending_orders():
+    con=db();rows=[dict(r) for r in con.execute('SELECT symbol,side,signal_time FROM pending_orders')];con.close();return rows
+
+class ResearchBar(BaseModel):
+    datetime: str
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float=0
+
+class ResearchInput(BaseModel):
+    symbol: str=Field(default='SPY',max_length=12)
+    use_cached: bool=True
+    bars: list[ResearchBar]=Field(default_factory=list,max_length=5000)
+    source: str=Field(default='Saved free-provider candles',min_length=3,max_length=400)
+
+@app.get('/experiments')
+def experiments():
+    con=db();rows=[dict(r) for r in con.execute('SELECT id,ts,symbol,dataset_hash,protocol,test_start,test_end,status,payload FROM research_runs ORDER BY ts DESC LIMIT 100')];con.close()
+    for r in rows:r['payload']=json.loads(r['payload']);r['protocol']=json.loads(r['protocol'])
+    return {'runs':rows,'protocol':PROTOCOL,'no_automatic_activation':True,'forward_plans':forward_plans()}
+
+@app.post('/experiments')
+def run_research(payload: ResearchInput,x_control_token: str | None=Header(default=None)):
+    require_control(x_control_token)
+    if payload.symbol not in INSTRUMENTS or not INSTRUMENTS[payload.symbol]['paper_enabled']:raise HTTPException(422,'Choose a paper-enabled US instrument.')
+    with _cycle_lock:
+        con=db()
+        if payload.use_cached:
+            rows=con.execute("SELECT bar_time AS datetime,open,high,low,close,volume FROM candles WHERE symbol=? AND interval='4h' ORDER BY bar_time",(payload.symbol,)).fetchall();bars=[dict(r) for r in rows][-5000:]
+        else:bars=[r.model_dump() for r in payload.bars]
+        try:validate_bars(bars)
+        except (ValueError,KeyError,TypeError) as e:con.close();raise HTTPException(422,str(e))
+        if datetime.fromisoformat(bars[-1]['datetime']).replace(tzinfo=ZoneInfo('America/New_York')).astimezone(timezone.utc)+timedelta(hours=4,minutes=15)>datetime.now(timezone.utc):con.close();raise HTTPException(422,'Research requires completed candles.')
+        digest=fingerprint(payload.symbol,bars);proto=json.dumps(PROTOCOL,sort_keys=True)
+        existing=con.execute('SELECT id,payload,status FROM research_runs WHERE dataset_hash=? AND protocol=?',(digest,proto)).fetchone()
+        if existing:con.close();return {'id':existing['id'],'status':existing['status'],'reused_existing_run':True,'result':json.loads(existing['payload'])}
+        if con.execute('SELECT COUNT(*) FROM research_runs').fetchone()[0]>=100:con.close();raise HTTPException(409,'Research history limit reached (100 batches). Export before extending storage.')
+        split=int(len(bars)*.7);start=bars[split]['datetime'];end=bars[-1]['datetime']
+        prior=con.execute('SELECT test_start,test_end FROM research_runs WHERE symbol=?',(payload.symbol,)).fetchall()
+        reuse=any(not(end<r['test_start'] or start>r['test_end']) for r in prior)
+        rid=str(uuid.uuid4());meta={'source':payload.source,'bars':len(bars),'split_index':split,'test_period_reused':reuse,'later_period_label':'Previously tested period' if reuse else 'First recorded test of this period in this lab','dataset_sha256':digest,'predeclared_at':utcnow(),'variants_attempted':8,'edge_validated':False}
+        con.execute('INSERT INTO research_runs VALUES (?,?,?,?,?,?,?,?,?,?)',(rid,utcnow(),payload.symbol,digest,proto,start,end,'RUNNING',json.dumps(meta),json.dumps(bars)));con.commit();con.close()
+    # Run outside scheduler lock; protocol and dataset already frozen and durably registered.
+    try:
+        result=dict(meta,**compare(bars,split));state='COMPLETE'
+    except Exception as e:result=dict(meta,error=type(e).__name__);state='FAILED'
+    with _cycle_lock:
+        con=db();con.execute('UPDATE research_runs SET status=?,payload=? WHERE id=?',(state,json.dumps(result),rid));con.commit();con.close()
+        emit('Performance Reviewer','Research Lab','EXPERIMENT_RECORDED',state,'Fixed comparison batch retained; no strategy activation.',{'id':rid,'variants':8,'test_period_reused':reuse})
+    return {'id':rid,'status':state,'result':result}
+
+@app.get('/experiments/{run_id}/dataset')
+def experiment_dataset(run_id: str):
+    con=db();row=con.execute('SELECT symbol,dataset,protocol FROM research_runs WHERE id=?',(run_id,)).fetchone();con.close()
+    if not row:raise HTTPException(404,'Experiment not found.')
+    return {'symbol':row['symbol'],'bars':json.loads(row['dataset']),'protocol':json.loads(row['protocol'])}
+
+@atomic
+def maybe_weekly_report():
+    now=datetime.now(ZoneInfo('America/New_York'));monday=now.date()-timedelta(days=now.weekday());start=monday-timedelta(days=7);week=start.isoformat()
+    con=db()
+    if con.execute('SELECT 1 FROM weekly_reports WHERE week=?',(week,)).fetchone():con.close();return
+    rows=[dict(r) for r in con.execute("SELECT p.*,r.followed_rules,r.review_status FROM positions p LEFT JOIN trade_reviews r ON p.id=r.trade_id WHERE p.status='CLOSED' AND p.exit_time>=? AND p.exit_time<?",(week,monday.isoformat()))]
+    total=con.execute("SELECT COUNT(*) FROM positions WHERE status='CLOSED'").fetchone()[0]
+    failures=con.execute("SELECT COUNT(*) FROM messages WHERE sender='Market Data' AND type='SYSTEM_ERROR' AND ts>=? AND ts<?",(datetime.combine(start,datetime.min.time(),ZoneInfo('America/New_York')).astimezone(timezone.utc).isoformat(),datetime.combine(monday,datetime.min.time(),ZoneInfo('America/New_York')).astimezone(timezone.utc).isoformat())).fetchone()[0]
+    equity=[dict(r) for r in con.execute('SELECT * FROM equity_history WHERE ts>=? AND ts<? ORDER BY ts',(datetime.combine(start,datetime.min.time(),ZoneInfo('America/New_York')).astimezone(timezone.utc).isoformat(),datetime.combine(monday,datetime.min.time(),ZoneInfo('America/New_York')).astimezone(timezone.utc).isoformat()))]
+    pnl=sum(r['realized_pnl'] or 0 for r in rows);eligible=[r for r in rows if r['planned_loss']>0];reviewed=[r for r in rows if r['review_status']=='reviewed' and r['followed_rules'] in ('yes','partial','no')]
+    frozen=get_state()['frozen'];decision='pause' if frozen else 'investigate' if failures or (len(rows)>=30 and pnl<0) else 'continue collecting'
+    reasons=[]
+    if frozen:reasons.append(get_state()['freeze_reason'])
+    if failures:reasons.append(str(failures)+' provider failures during this week; check coverage before interpreting results.')
+    if total<30:reasons.append('Fewer than 30 closed trades overall; this collection milestone does not establish profitability.')
+    if not rows:reasons.append('No closed trades in this week; expectancy and adherence are unavailable.')
+    if len(rows)>=30 and pnl<0:reasons.append('Negative weekly expectancy after recorded costs; inspect setups and execution.')
+    if not reasons:reasons.append('Continue monitoring; a positive week alone does not validate an edge.')
+    report={'week_start':week,'week_end':(monday-timedelta(days=1)).isoformat(),'timezone':'America/New_York','decision':decision,'reasons':reasons,'closed_trades':len(rows),'overall_closed_trades':total,'net_pnl':pnl,'expectancy_dollars':pnl/len(rows) if rows else None,'expectancy_r':sum((r['realized_pnl'] or 0)/r['planned_loss'] for r in eligible)/len(eligible) if eligible else None,'estimated_costs':sum(r['estimated_costs'] for r in rows),'legacy_trades_without_cost_model':sum(r['entry_fee']==0 for r in rows),'drawdown':max((r['peak']-r['equity'] for r in equity),default=None),'equity_observations':len(equity),'rule_adherence_pct':sum(r['followed_rules']=='yes' for r in reviewed)/len(reviewed)*100 if reviewed else None,'reviewed_trades':len(reviewed),'data_failures':failures,'edge_validated':False,'automatic_strategy_changes':False}
+    con.execute('INSERT INTO weekly_reports VALUES (?,?,?)',(week,utcnow(),json.dumps(report)));con.commit();con.close()
+    emit('Performance Reviewer','Supervisor','WEEKLY_DECISION','REVIEW','Weekly decision: '+decision,report)
+    return report
+
+@app.get('/weekly-reports')
+def weekly_reports():
+    con=db();rows=[dict(r) for r in con.execute('SELECT * FROM weekly_reports ORDER BY week DESC LIMIT 52')];con.close()
+    return [dict(r,payload=json.loads(r['payload'])) for r in rows]
+
+
+def register_forward_plan():
+    con=db();proto=json.dumps(PROTOCOL,sort_keys=True)
+    con.execute("UPDATE forward_plans SET status='INTERRUPTED' WHERE status='RUNNING'")
+    con.execute('INSERT OR IGNORE INTO forward_plans VALUES (?,?,?,?,?,?)',('forward-SPY-'+PROTOCOL['version'],'SPY',utcnow(),proto,'COLLECTING',None));con.commit();con.close()
+
+@app.get('/forward-plans')
+def forward_plans():
+    con=db();rows=[dict(r) for r in con.execute('SELECT * FROM forward_plans ORDER BY registered_at DESC')]
+    for r in rows:
+        bars=con.execute("SELECT bar_time FROM candles WHERE symbol=? AND interval='4h' ORDER BY bar_time",(r['symbol'],)).fetchall()
+        r['future_completed_bars']=sum(datetime.fromisoformat(b['bar_time']).replace(tzinfo=ZoneInfo('America/New_York')).astimezone(timezone.utc)>=datetime.fromisoformat(r['registered_at']) for b in bars)
+        r['required_future_bars']=120;r['protocol']=json.loads(r['protocol'])
+    con.close();return rows
+
+def maybe_forward_research():
+    con=db();plans=con.execute("SELECT * FROM forward_plans WHERE status='COLLECTING'").fetchall()
+    for plan in plans:
+        if plan['protocol']!=json.dumps(PROTOCOL,sort_keys=True):
+            con.execute("UPDATE forward_plans SET status='REVIEW_REQUIRED' WHERE id=?",(plan['id'],));continue
+        bars=[dict(r) for r in con.execute("SELECT bar_time AS datetime,open,high,low,close,volume FROM candles WHERE symbol=? AND interval='4h' ORDER BY bar_time",(plan['symbol'],))]
+        future=[i for i,b in enumerate(bars) if datetime.fromisoformat(b['datetime']).replace(tzinfo=ZoneInfo('America/New_York')).astimezone(timezone.utc)>=datetime.fromisoformat(plan['registered_at'])]
+        if len(future)<120 or future[0]<60:continue
+        selected=bars[future[0]-60:future[119]+1];digest=fingerprint(plan['symbol'],selected);rid=str(uuid.uuid4())
+        meta={'source':'Future saved free candles, protocol frozen before their opening timestamps','bars':len(selected),'split_index':60,'split_policy':'60 prior warm-up bars; first 120 future completed bars form the test','test_period_reused':False,'later_period_label':'Reserved forward period','dataset_sha256':digest,'predeclared_at':plan['registered_at'],'variants_attempted':8,'edge_validated':False}
+        con.execute('INSERT INTO research_runs VALUES (?,?,?,?,?,?,?,?,?,?)',(rid,utcnow(),plan['symbol'],digest,plan['protocol'],selected[60]['datetime'],selected[-1]['datetime'],'RUNNING',json.dumps(meta),json.dumps(selected)))
+        con.execute("UPDATE forward_plans SET status='RUNNING',run_id=? WHERE id=?",(rid,plan['id']));con.commit()
+        # Protocol, dataset and attempted trial are durable before calculation.
+        try:result=dict(meta,**compare(selected,60));state='COMPLETE'
+        except Exception as e:result=dict(meta,error=type(e).__name__);state='FAILED'
+        con.execute('UPDATE research_runs SET status=?,payload=? WHERE id=?',(state,json.dumps(result),rid))
+        con.execute('UPDATE forward_plans SET status=?,run_id=? WHERE id=?',(state,rid,plan['id']))
+        con.commit()
+        emit('Performance Reviewer','Research Lab','FORWARD_EXPERIMENT',state,'Reserved future-period comparisons retained; no activation.',{'id':rid,'plan_id':plan['id']})
+    con.commit();con.close()

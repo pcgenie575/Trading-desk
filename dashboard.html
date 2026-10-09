@@ -69,7 +69,7 @@ function botState(name){
 
  if(name==='Market Data'){const c=s.coverage;return {label:sent?.type==='SYSTEM_ERROR'?'FEED ERROR':c?'SCANNING':'WAITING',text:c?c.instruments.filter(i=>i.last_success).length+' / '+c.instruments.length+' symbols have received data. '+c.credits_used_today+' / '+c.daily_request_cap+' daily requests used.':'Waiting for data.',latest}};
 
- if(name==='Paper Trader'){const ps=s.open_positions||[];return {label:ps.length?'POSITIONS OPEN':'FLAT',text:ps.length?ps.length+' paper positions: '+ps.map(p=>p.symbol).join(', ')+'. Unrealized '+money(s.unrealized_pnl)+'.':'No open paper position.',latest}};
+ if(name==='Paper Trader'){const ps=s.open_positions||[],queued=s.pending_orders||[];return {label:queued.length?'ORDERS QUEUED':ps.length?'POSITIONS OPEN':'FLAT',text:ps.length?ps.length+' paper positions: '+ps.map(p=>p.symbol).join(', ')+'. Unrealized '+money(s.unrealized_pnl)+'.':queued.length?queued.length+' simulated orders waiting for a later candle open.':'No open paper position.',latest}};
 
  if(name==='Logger')return {label:'AUDIT HISTORY',text:snapshot.messages.length+' recent recorded events available.',latest};
 

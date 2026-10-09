@@ -62,9 +62,15 @@ class Operations(unittest.TestCase):
             self.assertEqual([r['version'] for r in client.get(path+'/history').json()],[3,2,1])
             self.assertEqual(client.put('/knowledge/'+seed[0]['id'],json=dict(payload,expected_version=1),headers=headers).status_code,409)
 
+    def fill_next(self):
+        bar=dict(self.bars[-1],datetime=(datetime.fromisoformat(self.bars[-1]['datetime'])+timedelta(hours=8)).isoformat(sep=' '),open=112,high=114,low=111,close=113)
+        return room.process_bars(self.bars+[bar])
     def test_entry_duplicate_restart_and_exit(self):
         result=room.process_bars(self.bars)
-        self.assertEqual(result['status'],'PAPER_ENTRY')
+        self.assertEqual(result['status'],'ENTRY_QUEUED')
+        self.assertIsNone(room.open_position())
+        room.init_db();self.assertEqual(len(room.pending_orders()),1)
+        self.assertEqual(self.fill_next()['status'],'PAPER_ENTRY')
         pos=room.open_position()
         self.assertLessEqual(pos['planned_loss'],25+1e-8)
         self.assertLessEqual(pos['position_value'],500+1e-8)
@@ -72,11 +78,11 @@ class Operations(unittest.TestCase):
         room.init_db()
         self.assertEqual(room.get_state(),before)
         self.assertEqual(room.process_bars(self.bars)['status'],'NO_NEW_BAR')
-        next_bar=dict(self.bars[-1],datetime=(datetime.fromisoformat(self.bars[-1]['datetime'])+timedelta(hours=4)).isoformat(sep=' '),open=90,high=92,low=89,close=91)
+        next_bar=dict(self.bars[-1],datetime=(datetime.fromisoformat(self.bars[-1]['datetime'])+timedelta(hours=12)).isoformat(sep=' '),open=90,high=92,low=89,close=91)
         room.process_bars(self.bars+[next_bar])
         self.assertIsNone(room.open_position())
         closed=room.positions()[0]
-        self.assertAlmostEqual(closed['exit_price'],90*(1-0.0002))
+        self.assertAlmostEqual(closed['exit_price'],90*(1-0.0007))
         self.assertAlmostEqual(room.get_state()['cash'],5000+closed['realized_pnl'])
         self.assertTrue(any(m['type']=='PAPER_EXIT' for m in room.messages()))
     def test_transaction_rolls_back_on_failure(self):
@@ -115,27 +121,30 @@ class Operations(unittest.TestCase):
                     time.sleep(0.01)
                 self.assertTrue(client.get('/status').json()['scheduler_running'])
                 self.assertEqual(client.get('/healthz').status_code,200)
-                self.assertIsNotNone(room.open_position())
+                self.assertIsNone(room.open_position());self.assertEqual(len(room.pending_orders()),1)
                 result=client.post('/cycle',headers={'X-Control-Token':'test-control-token'}).json()
                 self.assertIn(result['status'],('NO_NEW_BAR','SCAN_CYCLE'))
-                self.assertEqual(len([p for p in room.positions() if p['symbol']=='SPY']),1)
+                self.assertEqual(len([o for o in room.pending_orders() if o['symbol']=='SPY']),1)
 
     def test_multi_symbol_marks_checkpoints_and_portfolio_caps(self):
-        for symbol in ['SPY','AAPL','MSFT']:
+        small=dict(self.sig,quantity=self.sig['quantity']/3,position_value=self.sig['position_value']/3,planned_loss=self.sig['planned_loss']/3)
+        for symbol in ['SPY','GLD','TLT']:
             room._local.symbol=symbol
-            self.assertEqual(room.process_bars(self.bars)['status'],'PAPER_ENTRY')
+            with patch.object(room,'signal_from_bars',return_value=small):
+                self.assertEqual(room.process_bars(self.bars)['status'],'ENTRY_QUEUED')
+            self.assertEqual(self.fill_next()['status'],'PAPER_ENTRY')
             self.assertEqual(room.process_bars(self.bars)['status'],'NO_NEW_BAR')
         room._local.symbol='NVDA'
         self.assertEqual(room.process_bars(self.bars)['status'],'REJECTED')
         self.assertEqual(len(room.open_positions()),3)
-        self.assertAlmostEqual(room.get_state()['equity'],room.get_state()['cash']+sum(p['qty']*110 for p in room.open_positions()))
-        room._local.symbol='AAPL'
+        self.assertAlmostEqual(room.get_state()['equity'],room.get_state()['cash']+sum(p['qty']*113 for p in room.open_positions()))
+        room._local.symbol='GLD'
         aapl=room.open_position()
         room.paper_exit(aapl,120,self.bars[-1]['datetime'],'TEST')
         room.update_equity(120)
         self.assertEqual(len(room.open_positions()),2)
         before=room.get_state();room.init_db();self.assertEqual(room.get_state(),before)
-        self.assertIn('last_processed_bar:AAPL',room.state_raw())
+        self.assertIn('last_processed_bar:GLD',room.state_raw())
         room._local.symbol='SPY'
 
     def test_free_budget_persists_and_reserves_exit_capacity(self):
@@ -154,12 +163,12 @@ class Operations(unittest.TestCase):
         self.assertEqual(room.process_bars(self.bars,allow_entry=False)['status'],'ENTRY_SKIPPED')
         self.assertFalse(room.open_positions())
         room._local.symbol='SPY'
-        self.assertEqual(room.process_bars(self.bars)['status'],'PAPER_ENTRY')
+        self.assertEqual(room.process_bars(self.bars)['status'],'ENTRY_QUEUED')
         self.assertEqual({b['symbol'] for b in room.candles(1000)},{'SPY','BTC/USD'})
         self.assertEqual(room.coverage()['instruments'][-2]['paper_enabled'],False)
 
     def test_trade_plan_and_review_persist_without_changing_execution(self):
-        room.process_bars(self.bars)
+        room.process_bars(self.bars);self.fill_next()
         position=room.open_position();record=room.journal()['trades'][0]
         self.assertEqual({k:record['context']['candidate'][k] for k in self.sig},self.sig)
         self.assertEqual(record['context']['curriculum_version'],room.CURRICULUM_VERSION)

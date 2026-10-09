@@ -11,7 +11,7 @@ class StrategyConfig:
     max_planned_loss: float = 25.0
     stop_pct: float = 0.05
     slippage_bps: float = 2.0
-    commission_per_order: float = 0.0
+    commission_per_order: float = 1.0
 
 CONFIG = StrategyConfig()
 
@@ -59,107 +59,8 @@ def signal_from_bars(bars: List[Dict], cfg: StrategyConfig = CONFIG):
     }
 
 def backtest(bars: List[Dict], cfg: StrategyConfig = CONFIG):
-    needed = max(cfg.trend_ma, cfg.exit_ma, cfg.breakout_lookback + 1)
-    if len(bars) <= needed:
-        return {"error": f"Need more than {needed} bars for a backtest."}
-
-    cash = cfg.starting_balance
-    peak = cash
-    max_drawdown = 0.0
-    position = None
-    trades = []
-    equity_curve = []
-
-    for i in range(needed, len(bars)):
-        window = bars[:i+1]
-        bar = bars[i]
-        close = float(bar["close"])
-        low = float(bar["low"])
-        closes = [float(x["close"]) for x in window]
-        exit_ma = sma(closes, cfg.exit_ma)
-
-        if position:
-            raw_exit = None
-            exit_reason = None
-            if low <= position["stop"]:
-                raw_exit = position["stop"]
-                exit_reason = "PROTECTIVE_STOP"
-            elif exit_ma is not None and close < exit_ma:
-                raw_exit = close
-                exit_reason = "CLOSE_BELOW_20_SMA"
-
-            if exit_reason:
-                exit_price = raw_exit * (1.0 - cfg.slippage_bps / 10000.0)
-                proceeds = position["qty"] * exit_price - cfg.commission_per_order
-                cash += proceeds
-                trades.append({
-                    "entry_time": position["entry_time"],
-                    "exit_time": bar["datetime"],
-                    "entry_price": position["entry_price"],
-                    "exit_price": exit_price,
-                    "qty": position["qty"],
-                    "pnl": proceeds - position["cost"],
-                    "exit_reason": exit_reason,
-                })
-                position = None
-
-        if not position:
-            sig = signal_from_bars(window, cfg)
-            if sig["signal"] == "CANDIDATE":
-                entry = close * (1.0 + cfg.slippage_bps / 10000.0)
-                qty = min(sig["quantity"], max(0.0, cash - cfg.commission_per_order) / entry)
-                cost = qty * entry + cfg.commission_per_order
-                if qty > 0 and cost <= cash:
-                    cash -= cost
-                    position = {
-                        "entry_time": bar["datetime"],
-                        "entry_price": entry,
-                        "qty": qty,
-                        "stop": sig["stop"],
-                        "cost": cost,
-                    }
-
-        equity = cash + (position["qty"] * close if position else 0.0)
-        peak = max(peak, equity)
-        max_drawdown = max(max_drawdown, peak - equity)
-        equity_curve.append({"datetime": bar["datetime"], "equity": equity})
-
-    if position:
-        last = bars[-1]
-        exit_price = float(last["close"]) * (1.0 - cfg.slippage_bps / 10000.0)
-        proceeds = position["qty"] * exit_price - cfg.commission_per_order
-        cash += proceeds
-        trades.append({
-            "entry_time": position["entry_time"],
-            "exit_time": last["datetime"],
-            "entry_price": position["entry_price"],
-            "exit_price": exit_price,
-            "qty": position["qty"],
-            "pnl": proceeds - position["cost"],
-            "exit_reason": "END_OF_TEST",
-        })
-
-    wins = sum(t["pnl"] > 0 for t in trades)
-    total_pnl = cash - cfg.starting_balance
-    first = float(bars[needed]["close"])
-    last = float(bars[-1]["close"])
-    hold_qty = min(cfg.max_position / first, cfg.starting_balance / first)
-    passive_pnl = hold_qty * (last - first)
-
-    return {
-        "starting_balance": cfg.starting_balance,
-        "ending_balance": cash,
-        "total_pnl": total_pnl,
-        "return_pct": total_pnl / cfg.starting_balance * 100.0,
-        "trades": len(trades),
-        "wins": wins,
-        "losses": len(trades) - wins,
-        "win_rate_pct": (wins / len(trades) * 100.0) if trades else 0.0,
-        "max_drawdown_dollars": max_drawdown,
-        "passive_500_exposure_pnl": passive_pnl,
-        "strategy_minus_passive_pnl": total_pnl - passive_pnl,
-        "slippage_bps": cfg.slippage_bps,
-        "commission_per_order": cfg.commission_per_order,
-        "trade_log": trades,
-        "equity_curve": equity_curve,
-    }
+    # Research uses a frozen shared cost model and fixed protocol, not ad-hoc tuning.
+    from research_engine import validate_bars, compare
+    if cfg != CONFIG:raise ValueError('Custom settings require a new recorded research protocol.')
+    validate_bars(bars)
+    return compare(bars,int(len(bars)*.7))
