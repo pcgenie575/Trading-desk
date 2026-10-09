@@ -1,5 +1,7 @@
 # Trading Control Room — Paper Operations
 
+**[Open the dashboard](https://tcr.161-33-69-185.sslip.io/)** · **[Start Here: links and login help](START_HERE.md)**
+
 For the prepared Oracle Cloud deployment, follow **ORACLE_DEPLOYMENT.md** and
 use **compose.oracle.yml**. The original Docker instructions below describe local
 operation only. Dashboard authentication and a control token are now mandatory.
