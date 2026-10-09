@@ -34,7 +34,16 @@ class TwelveDataAdapter:
             raise MarketDataError(f"Market-data request failed ({type(e).__name__})")
 
         if payload.get("status") == "error" or "values" not in payload:
-            raise MarketDataError(payload.get("message", "Unexpected market-data response."))
+            raise MarketDataError(str(payload.get("message", "Unexpected market-data response.")).replace(self.api_key, '[redacted]'))
+
+        meta=payload.get('meta',{})
+        if meta.get('symbol')!=symbol:
+            raise MarketDataError('Provider returned a different instrument.')
+        if '/' in symbol:
+            if meta.get('currency_quote')!='US Dollar':
+                raise MarketDataError('Crypto quote currency must be USD.')
+        elif meta.get('currency')!='USD' or meta.get('exchange') not in ('NASDAQ','NYSE','NYSE Arca','NYSE MKT','AMEX','CBOE','BATS'):
+            raise MarketDataError('Instrument is not verified as a USD US listing.')
 
         bars = []
         for x in reversed(payload["values"]):

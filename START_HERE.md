@@ -29,11 +29,11 @@ If you see `ERR_INVALID_AUTH_CREDENTIALS`, try Chrome Incognito or Edge InPrivat
 
 ## Check operation
 
-Look for a running scheduler, advancing completed-candle timestamps, and new audit entries. Polling runs every five minutes; trading decisions use completed SPY four-hour candles, so a new trade is not expected every poll. Public health checks confirm scheduler/process health, not market-data freshness.
+Look for a running scheduler, advancing completed-candle timestamps, and new audit entries. The agent flow diagram animates new recorded messages; quiet links are normal between events. Select any agent for details. Polling runs every five minutes; decisions use completed four-hour candles across the bounded free-data watchlist, so a new trade is not expected every poll. Open positions receive priority refreshes every 15 minutes. Public health checks confirm scheduler/process health, not market-data freshness. Check the Market coverage table for each symbol's actual data status.
 
 Last live verification: **9 October 2026**. The service was healthy, the scheduler was running, and one SPY paper position was open. This is a dated observation, not a continuously updated status report.
 
-Paper limits: $5,000 starting balance, $500 maximum position value, $25 maximum planned loss per trade, $75 daily-loss stop, and $250 drawdown freeze.
+Paper limits: $5,000 starting balance, three positions maximum, $1,500 aggregate entry exposure, $500 maximum per position, $25 planned loss per trade and $75 aggregate planned loss, $75 daily-loss stop, and $250 drawdown freeze. Crypto is observation only. See [Free-data coverage and limitations](MARKET_EXPANSION.md).
 
 ## Backups and access
 

@@ -19,7 +19,9 @@ Market Data → Analyst → Risk & Compliance → Paper Trader → Logger
 Performance Reviewer reads completed results and reports to Supervisor.
 
 ## What is autonomous
-- Fetch SPY 4-hour data on a schedule
+- Rotate a free-data watchlist of 16 US shares/ETFs and observe BTC/USD and ETH/USD
+- Fetch completed 4-hour candles, prioritizing open positions every 15 minutes
+- Persist a conservative 720-request daily cap, with scanner requests capped at 600
 - Deduplicate completed candles
 - Run the fixed Trend Breakout v1 Analyst
 - Apply deterministic risk checks
@@ -35,10 +37,11 @@ Performance Reviewer reads completed results and reports to Supervisor.
 
 ## Fixed paper limits
 - Starting balance: $5,000
-- SPY only
+- US watchlist only for paper execution; crypto is observation only
 - Long only
 - No leverage
-- One position at a time
+- Up to three positions, one per symbol
+- Maximum aggregate entry exposure: $1,500; planned loss: $75
 - Max position: $500
 - Max planned loss: $25
 - Daily realized-loss freeze: $75
@@ -51,7 +54,7 @@ Performance Reviewer reads completed results and reports to Supervisor.
 - 2 bps simulated slippage each side
 
 ## Security
-Set `TCR_CONTROL_TOKEN`. Mutating controls (manual cycle, freeze, resume) require it.
+Set `TCR_CONTROL_TOKEN`. Mutating controls (manual cycle, freeze, resume, backtest) require it.
 For internet deployment, put the service behind HTTPS and provider/firewall access controls.
 
 ## Run with Docker

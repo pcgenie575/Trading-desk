@@ -84,6 +84,45 @@ class Operations(unittest.TestCase):
                 self.assertEqual(client.get('/healthz').status_code,200)
                 self.assertIsNotNone(room.open_position())
                 result=client.post('/cycle',headers={'X-Control-Token':'test-control-token'}).json()
-                self.assertEqual(result['status'],'NO_NEW_BAR')
+                self.assertIn(result['status'],('NO_NEW_BAR','SCAN_CYCLE'))
+                self.assertEqual(len([p for p in room.positions() if p['symbol']=='SPY']),1)
+
+    def test_multi_symbol_marks_checkpoints_and_portfolio_caps(self):
+        for symbol in ['SPY','AAPL','MSFT']:
+            room._local.symbol=symbol
+            self.assertEqual(room.process_bars(self.bars)['status'],'PAPER_ENTRY')
+            self.assertEqual(room.process_bars(self.bars)['status'],'NO_NEW_BAR')
+        room._local.symbol='NVDA'
+        self.assertEqual(room.process_bars(self.bars)['status'],'REJECTED')
+        self.assertEqual(len(room.open_positions()),3)
+        self.assertAlmostEqual(room.get_state()['equity'],room.get_state()['cash']+sum(p['qty']*110 for p in room.open_positions()))
+        room._local.symbol='AAPL'
+        aapl=room.open_position()
+        room.paper_exit(aapl,120,self.bars[-1]['datetime'],'TEST')
+        room.update_equity(120)
+        self.assertEqual(len(room.open_positions()),2)
+        before=room.get_state();room.init_db();self.assertEqual(room.get_state(),before)
+        self.assertIn('last_processed_bar:AAPL',room.state_raw())
+        room._local.symbol='SPY'
+
+    def test_free_budget_persists_and_reserves_exit_capacity(self):
+        day=datetime.now(room.timezone.utc).date().isoformat()
+        room.set_state('credits:'+day,room.SCAN_CREDITS)
+        self.assertFalse(room.reserve_credit(False))
+        self.assertTrue(room.reserve_credit(True))
+        room.init_db()
+        self.assertEqual(room.coverage()['credits_used_today'],room.SCAN_CREDITS+1)
+        room.set_state('credits:'+day,room.DAILY_CREDITS)
+        self.assertFalse(room.reserve_credit(True))
+
+    def test_crypto_observation_and_symbol_isolation(self):
+        room._local.symbol='BTC/USD'
+        self.assertFalse(room.risk_check(self.sig)[0])
+        self.assertEqual(room.process_bars(self.bars,allow_entry=False)['status'],'ENTRY_SKIPPED')
+        self.assertFalse(room.open_positions())
+        room._local.symbol='SPY'
+        self.assertEqual(room.process_bars(self.bars)['status'],'PAPER_ENTRY')
+        self.assertEqual({b['symbol'] for b in room.candles(1000)},{'SPY','BTC/USD'})
+        self.assertEqual(room.coverage()['instruments'][-2]['paper_enabled'],False)
 
 if __name__=='__main__': unittest.main()

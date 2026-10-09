@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from datetime import datetime, timezone, date
 import sqlite3, uuid, json, threading, os, math, secrets, base64
 from functools import wraps
+from universe import INSTRUMENTS, DAILY_CREDITS, SCAN_CREDITS, OPEN_REFRESH_SECONDS, SCAN_REFRESH_SECONDS, MAX_OPEN, MAX_EXPOSURE, MAX_PORTFOLIO_PLANNED_LOSS
 from zoneinfo import ZoneInfo
 from fastapi.responses import JSONResponse
 from market_data import TwelveDataAdapter, MarketDataError
@@ -19,9 +20,22 @@ RULES = {
     "max_planned_loss": 25.0,
     "daily_loss_stop": 75.0,
     "drawdown_freeze": 250.0,
-    "symbol": "SPY",
+    "symbol": "US multi-symbol",
+    "max_open_positions": MAX_OPEN,
+    "max_portfolio_exposure": MAX_EXPOSURE,
+    "max_portfolio_planned_loss": MAX_PORTFOLIO_PLANNED_LOSS,
     "interval": "4h",
 }
+
+def current_symbol():
+    return getattr(_local, "symbol", "SPY")
+
+def checkpoint_key(symbol=None):
+    symbol=symbol or current_symbol()
+    return "last_processed_bar" if symbol=="SPY" else "last_processed_bar:"+symbol
+
+def open_positions():
+    con=db(); rows=[dict(r) for r in con.execute("SELECT * FROM positions WHERE status='OPEN'")]; con.close(); return rows
 
 def utcnow():
     return datetime.now(timezone.utc).isoformat()
@@ -127,7 +141,7 @@ def set_state(k,v):
 
 def emit(sender, recipient, typ, status, reason, data=None, trade_id=None):
     msg={"id":str(uuid.uuid4()),"ts":utcnow(),"sender":sender,"recipient":recipient,
-         "type":typ,"status":status,"reason":reason,"data":data or {},"trade_id":trade_id}
+         "type":typ,"status":status,"reason":reason,"data":{"symbol":current_symbol(),**(data or {})},"trade_id":trade_id}
     con=db()
     con.execute("INSERT INTO messages VALUES (?,?,?,?,?,?,?,?,?)",
       (msg["id"],msg["ts"],sender,recipient,typ,status,reason,json.dumps(msg["data"]),trade_id))
@@ -140,7 +154,7 @@ def save_candles(bars):
         cur=con.execute("""INSERT OR IGNORE INTO candles
           (symbol,interval,bar_time,open,high,low,close,volume)
           VALUES (?,?,?,?,?,?,?,?)""",
-          ("SPY","4h",b["datetime"],b["open"],b["high"],b["low"],b["close"],b["volume"]))
+          (current_symbol(),"4h",b["datetime"],b["open"],b["high"],b["low"],b["close"],b["volume"]))
         inserted += cur.rowcount
     con.commit(); con.close()
     return inserted
@@ -153,7 +167,7 @@ def latest_saved_bar():
 
 def open_position():
     con=db()
-    r=con.execute("SELECT * FROM positions WHERE status='OPEN' ORDER BY entry_time DESC LIMIT 1").fetchone()
+    r=con.execute("SELECT * FROM positions WHERE status='OPEN' AND symbol=? ORDER BY entry_time DESC LIMIT 1",(current_symbol(),)).fetchone()
     con.close()
     return dict(r) if r else None
 
@@ -173,10 +187,13 @@ def add_daily_pnl(amount):
 
 @atomic
 def update_equity(mark):
-    s=get_state(); pos=open_position()
-    equity=s["cash"] + (pos["qty"]*mark if pos else 0.0)
+    s=get_state()
+    set_state("mark:"+current_symbol(),mark)
+    raw=state_raw()
+    equity=s["cash"] + sum(p["qty"]*float(raw.get("mark:"+p["symbol"],raw.get("last_price",p["entry_price"]) if p["symbol"]=="SPY" else p["entry_price"])) for p in open_positions())
     peak=max(s["peak_equity"],equity)
-    set_state("last_price",mark); set_state("equity",equity); set_state("peak_equity",peak)
+    if current_symbol()=="SPY": set_state("last_price",mark)
+    set_state("equity",equity); set_state("peak_equity",peak)
     if peak-equity >= RULES["drawdown_freeze"] and not s["frozen"]:
         freeze_system(f"Drawdown circuit breaker reached: ${peak-equity:.2f}.")
     return equity, peak
@@ -193,7 +210,13 @@ def risk_check(candidate):
     s=get_state()
     if s["peak_equity"]-s["equity"] >= RULES["drawdown_freeze"]: return False, "Drawdown circuit breaker reached."
     if s["frozen"]: return False, "System is frozen."
-    if open_position(): return False, "An open position already exists."
+    if open_position(): return False, "An open position already exists for this symbol."
+    active=open_positions()
+    if len(active)>=MAX_OPEN: return False, "Maximum open positions reached."
+    if sum(p["position_value"] for p in active)+candidate["position_value"] > MAX_EXPOSURE+1e-6: return False, "Portfolio exposure limit reached."
+    if sum(p["planned_loss"] for p in active)+candidate["planned_loss"] > MAX_PORTFOLIO_PLANNED_LOSS+1e-6: return False, "Portfolio planned-loss limit reached."
+    if candidate["position_value"]>s["cash"]: return False, "Insufficient paper cash."
+    if not INSTRUMENTS.get(current_symbol(),{}).get("paper_enabled"): return False, "Instrument is observation only."
     if today_realized() <= -RULES["daily_loss_stop"]: return False, "Daily loss circuit breaker reached."
     if candidate.get("position_value",0) > RULES["max_position"]+1e-6: return False, "Maximum position exceeded."
     if candidate.get("planned_loss",0) > RULES["max_planned_loss"]+1e-6: return False, "Maximum planned loss exceeded."
@@ -214,11 +237,11 @@ def paper_enter(candidate, bar):
     con.execute("""INSERT INTO positions
       (id,symbol,status,entry_time,entry_price,qty,stop,position_value,planned_loss)
       VALUES (?,?,?,?,?,?,?,?,?)""",
-      (trade_id,"SPY","OPEN",bar["datetime"],entry,qty,candidate["stop"],value,planned))
+      (trade_id,current_symbol(),"OPEN",bar["datetime"],entry,qty,candidate["stop"],value,planned))
     con.commit(); con.close()
     set_state("cash",s["cash"]-value)
     emit("Paper Trader","Logger","PAPER_ENTRY","OPEN",
-         f"Opened simulated SPY long: {qty:.4f} shares at ${entry:.2f}.",
+         f"Opened simulated {current_symbol()} long: {qty:.4f} shares at ${entry:.2f}.",
          {"qty":qty,"entry":entry,"stop":candidate["stop"],"value":value,"planned_loss":planned},trade_id)
     return trade_id
 
@@ -234,7 +257,7 @@ def paper_exit(pos, raw_price, bar_time, reason):
     s=get_state(); set_state("cash",s["cash"]+proceeds)
     add_daily_pnl(pnl)
     emit("Paper Trader","Logger","PAPER_EXIT","CLOSED",
-         f"Closed simulated SPY position. Realized P/L ${pnl:.2f}.",
+         f"Closed simulated {pos['symbol']} position. Realized P/L ${pnl:.2f}.",
          {"exit":exit_price,"pnl":pnl,"reason":reason},pos["id"])
     if today_realized() <= -RULES["daily_loss_stop"]:
         freeze_system(f"Daily realized loss reached ${-today_realized():.2f}.")
@@ -272,34 +295,68 @@ def reviewer_snapshot():
 _scheduler_stop=threading.Event()
 _scheduler_thread=None
 
+@atomic
+def reserve_credit(is_open=False):
+    day=datetime.now(timezone.utc).date().isoformat()
+    raw=state_raw(); key='credits:'+day; used=int(raw.get(key,0))
+    if used >= (DAILY_CREDITS if is_open else SCAN_CREDITS): return False
+    minute=datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M')
+    minute_key='credit_minute'; count=int(raw.get('credit_minute_count',0)) if raw.get(minute_key)==minute else 0
+    if count>=6: return False
+    set_state(key,used+1);set_state(minute_key,minute);set_state('credit_minute_count',count+1)
+    return True
+
 def autonomous_cycle(force=False):
-    set_state("last_cycle",utcnow())
-    try:
-        bars=TwelveDataAdapter().latest_completed_bars("SPY","4h",100)
-        if not bars: return {"status":"NO_DATA"}
-        processed=state_raw().get("last_processed_bar", "")
-        pending=[i for i,b in enumerate(bars) if b["datetime"] > processed]
-        if not processed: pending=[len(bars)-1]
-        if processed and processed < bars[0]["datetime"]:
-            freeze_system("Recovery data gap: operator review required.")
-        result={"status":"NO_NEW_BAR"}
-        for i in pending:
-            result=process_bars(bars[:i+1], allow_entry=(i==len(bars)-1))
-        return result
-    except Exception as e:
-        emit("Supervisor","Logger","SYSTEM_ERROR","NO_ACTION",f"{type(e).__name__}: {e}",{})
-        return {"status":"ERROR","reason":str(e)}
+    with _cycle_lock:
+        set_state('last_cycle',utcnow())
+        active={p['symbol'] for p in open_positions()}
+        symbols=list(INSTRUMENTS); raw=state_raw(); cursor=int(raw.get('scan_cursor',0))%len(symbols)
+        scanner=symbols[cursor];set_state('scan_cursor',(cursor+1)%len(symbols))
+        selected=list(sorted(active))
+        if scanner not in active:selected.append(scanner)
+        results={}
+        for symbol in selected:
+            _local.symbol=symbol
+            try:
+                last=state_raw().get('fetch:'+symbol,'')
+                interval=OPEN_REFRESH_SECONDS if symbol in active else SCAN_REFRESH_SECONDS
+                if last and (datetime.now(timezone.utc)-datetime.fromisoformat(last)).total_seconds()<interval:continue
+                if not reserve_credit(symbol in active):
+                    set_state('coverage:'+symbol,'BUDGET_WAIT');continue
+                set_state('fetch:'+symbol,utcnow())
+                bars=TwelveDataAdapter().latest_completed_bars(symbol,'4h',100)
+                if not bars:
+                    set_state('coverage:'+symbol,'NO_COMPLETED_DATA');continue
+                set_state('coverage:'+symbol,'DATA_RECEIVED')
+                set_state('feed_success:'+symbol,utcnow())
+                processed=state_raw().get(checkpoint_key(),'')
+                pending=[i for i,b in enumerate(bars) if b['datetime']>processed]
+                if not processed:pending=[len(bars)-1]
+                if processed and processed<bars[0]['datetime']:
+                    freeze_system('Recovery data gap for '+symbol+': operator review required.')
+                result={'status':'NO_NEW_BAR'}
+                for i in pending:
+                    result=process_bars(bars[:i+1],allow_entry=(i==len(bars)-1 and INSTRUMENTS[symbol]['paper_enabled']))
+                results[symbol]=result
+            except Exception as e:
+                set_state('coverage:'+symbol,'FEED_ERROR')
+                reason=f'{type(e).__name__}: {e}'
+                set_state('feed_error:'+symbol,reason)
+                emit('Market Data','Logger','SYSTEM_ERROR','NO_ACTION',reason)
+                results[symbol]={'status':'ERROR'}
+            finally:_local.symbol='SPY'
+        return results.get('SPY',{'status':'SCAN_CYCLE','results':results})
 
 @atomic
 def process_bars(bars, allow_entry=True):
         save_candles(bars)
-        processed=state_raw().get("last_processed_bar", "")
+        processed=state_raw().get(checkpoint_key(), "")
         if processed and bars[-1]["datetime"] <= processed:
             return {"status":"NO_NEW_BAR","bar_time":bars[-1]["datetime"]}
         update_equity(float(bars[-1]["close"]))
-        set_state("last_processed_bar", bars[-1]["datetime"])
+        set_state(checkpoint_key(), bars[-1]["datetime"])
         set_state("last_success", utcnow())
-        emit("Market Data","Analyst","NEW_BAR","RECEIVED","New completed SPY 4-hour candle received.",{"bar":bars[-1]})
+        emit("Market Data","Analyst","NEW_BAR","RECEIVED",f"New completed {current_symbol()} 4-hour candle received.",{"bar":bars[-1]})
 
         # Existing position gets exit priority.
         if open_position():
@@ -312,7 +369,7 @@ def process_bars(bars, allow_entry=True):
 
         opened=datetime.fromisoformat(bars[-1]["datetime"]).replace(tzinfo=ZoneInfo("America/New_York"))
         if not allow_entry or (datetime.now(timezone.utc)-opened.astimezone(timezone.utc)).total_seconds() > 86400:
-            emit("Supervisor","Analyst","ENTRY_SKIPPED","NO_ACTION","Historical or stale candle; exits only.")
+            emit("Supervisor","Analyst","ENTRY_SKIPPED","NO_ACTION","Historical, stale or observation-only candle; no entry.")
             return {"status":"ENTRY_SKIPPED"}
         sig=signal_from_bars(bars)
         emit("Analyst","Risk & Compliance",sig["signal"],
@@ -360,10 +417,22 @@ def startup():
 def status():
     pos=open_position()
     s=get_state()
-    unrealized=(pos["qty"]*(s["last_price"]-pos["entry_price"])) if pos and s["last_price"] else 0.0
-    return {"last_success":state_raw().get("last_success", ""), "last_processed_bar":state_raw().get("last_processed_bar", ""), "rules":RULES,"state":s,"daily_realized_pnl":today_realized(),
-            "open_position":pos,"unrealized_pnl":unrealized,
+    raw=state_raw()
+    unrealized=sum(p["qty"]*(float(raw.get("mark:"+p["symbol"],raw.get("last_price",p["entry_price"]) if p["symbol"]=="SPY" else p["entry_price"]))-p["entry_price"]) for p in open_positions())
+    return {"last_success":state_raw().get("last_success", ""), "last_processed_bar":state_raw().get(checkpoint_key(), ""), "rules":RULES,"state":s,"daily_realized_pnl":today_realized(),
+            "open_position":pos,"open_positions":open_positions(),"coverage":coverage(),"unrealized_pnl":unrealized,
             "scheduler_running":bool(_scheduler_thread and _scheduler_thread.is_alive())}
+
+@app.get('/coverage')
+def coverage():
+    raw=state_raw();day=datetime.now(timezone.utc).date().isoformat()
+    return {'scope':'Free-data watchlist; not all Webull instruments','credits_used_today':int(raw.get('credits:'+day,0)),
+      'daily_request_cap':DAILY_CREDITS,'scanner_cap':SCAN_CREDITS,'open_refresh_seconds':OPEN_REFRESH_SECONDS,
+      'instruments':[dict(i,status=raw.get('coverage:'+symbol,'WAITING'),last_fetch=raw.get('fetch:'+symbol,''),
+        last_success=raw.get('feed_success:'+symbol,''),last_bar=raw.get(checkpoint_key(symbol),''),
+        error=raw.get('feed_error:'+symbol,'') if raw.get('coverage:'+symbol)=='FEED_ERROR' else '') for symbol,i in INSTRUMENTS.items()],
+      'awaiting_data':['Australian shares/ETFs','Hong Kong shares/ETFs','China Connect','US options','Warrants'],
+      'disabled_features':['Margin','Short selling'],'crypto_note':'Observation only; crypto execution fee/spread model is not validated.'}
 
 @app.get("/messages")
 def messages(limit:int=200):
@@ -404,7 +473,10 @@ def resume(x_control_token: str | None = Header(default=None)):
     return {"ok":True}
 
 @app.post("/backtest")
-def run_backtest(outputsize:int=500):
+def run_backtest(outputsize:int=500, x_control_token: str | None = Header(default=None)):
+    require_control(x_control_token)
+    if not reserve_credit():
+        raise HTTPException(429,"Free data request budget is exhausted; try later.")
     try:
         bars=TwelveDataAdapter().latest_completed_bars("SPY","4h",min(max(outputsize,100),5000))
         report=backtest(bars)
