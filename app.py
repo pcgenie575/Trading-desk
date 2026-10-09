@@ -4,6 +4,7 @@ from datetime import datetime, timezone, date
 import sqlite3, uuid, json, threading, os, math, secrets, base64
 from functools import wraps
 from dataclasses import asdict
+from urllib.parse import urlparse
 from typing import Literal
 from pydantic import BaseModel, Field
 from universe import INSTRUMENTS, DAILY_CREDITS, SCAN_CREDITS, OPEN_REFRESH_SECONDS, SCAN_REFRESH_SECONDS, MAX_OPEN, MAX_EXPOSURE, MAX_PORTFOLIO_PLANNED_LOSS
@@ -12,6 +13,7 @@ from fastapi.responses import JSONResponse
 from market_data import TwelveDataAdapter, MarketDataError
 from strategy import signal_from_bars, backtest, CONFIG
 from agent_curriculum import curriculum, candidate_integrity, analyst_guidance, evidence_review, VERSION as CURRICULUM_VERSION
+from agent_curriculum import BOOKS, AGENTS
 
 app = FastAPI(title="Trading Control Room - Paper Operations")
 DB = os.getenv("TCR_DB", "control_room.db")
@@ -113,6 +115,16 @@ def init_db():
       review_status TEXT NOT NULL, followed_rules TEXT NOT NULL, notes TEXT NOT NULL,
       rule_break TEXT NOT NULL DEFAULT 'none'
     );
+    CREATE TABLE IF NOT EXISTS knowledge_entries(
+      id TEXT PRIMARY KEY, version INTEGER NOT NULL, updated_at TEXT NOT NULL,
+      title TEXT NOT NULL, kind TEXT NOT NULL, status TEXT NOT NULL,
+      content TEXT NOT NULL, evidence TEXT NOT NULL, source_url TEXT NOT NULL,
+      agents TEXT NOT NULL, builtin INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS knowledge_history(
+      entry_id TEXT NOT NULL, version INTEGER NOT NULL, ts TEXT NOT NULL,
+      payload TEXT NOT NULL, PRIMARY KEY(entry_id,version)
+    );
     """)
     if 'rule_break' not in {r['name'] for r in con.execute('PRAGMA table_info(trade_reviews)')}:
         con.execute("ALTER TABLE trade_reviews ADD COLUMN rule_break TEXT NOT NULL DEFAULT 'none'")
@@ -127,7 +139,27 @@ def init_db():
     }
     for k,v in defaults.items():
         con.execute("INSERT OR IGNORE INTO state(key,value) VALUES (?,?)",(k,str(v).lower() if isinstance(v,bool) else str(v)))
+    for book in BOOKS:
+        entry_id='book:'+book['id'];ts=utcnow()
+        cur=con.execute('INSERT OR IGNORE INTO knowledge_entries VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+            (entry_id,1,ts,book['title'],'lesson','approved',book['lesson'],
+             'Public author/publisher description; original coded curriculum '+CURRICULUM_VERSION+'. Full book not ingested.',book['source'],json.dumps(book['roles']),1))
+        if cur.rowcount:
+            row=dict(con.execute('SELECT * FROM knowledge_entries WHERE id=?',(entry_id,)).fetchone())
+            con.execute('INSERT INTO knowledge_history VALUES (?,?,?,?)',(entry_id,1,ts,json.dumps(row)))
     con.commit(); con.close()
+
+def knowledge_for_agent(agent,full=False):
+    if agent not in AGENTS:return []
+    con=db();rows=con.execute("SELECT * FROM knowledge_entries WHERE status='approved' AND kind='lesson' ORDER BY id").fetchall();con.close()
+    result=[]
+    for row in rows:
+        if agent not in json.loads(row['agents']):continue
+        item={'id':row['id'],'version':row['version'],'title':row['title'],
+              'application':'coded curriculum' if row['builtin'] else 'reference guidance'}
+        if full:item.update(content=row['content'],evidence=row['evidence'],source_url=row['source_url'])
+        result.append(item)
+    return result
 
 def state_raw():
     con=db()
@@ -155,7 +187,7 @@ def set_state(k,v):
 
 def emit(sender, recipient, typ, status, reason, data=None, trade_id=None):
     msg={"id":str(uuid.uuid4()),"ts":utcnow(),"sender":sender,"recipient":recipient,
-         "type":typ,"status":status,"reason":reason,"data":{"symbol":current_symbol(),**(data or {})},"trade_id":trade_id}
+         "type":typ,"status":status,"reason":reason,"data":{"symbol":current_symbol(),"knowledge_refs":knowledge_for_agent(sender),**(data or {})},"trade_id":trade_id}
     con=db()
     con.execute("INSERT INTO messages VALUES (?,?,?,?,?,?,?,?,?)",
       (msg["id"],msg["ts"],sender,recipient,typ,status,reason,json.dumps(msg["data"]),trade_id))
@@ -258,6 +290,7 @@ def paper_enter(candidate, bar):
              "candidate":candidate,"strategy_config":asdict(CONFIG),"risk_rules":dict(RULES),
              "instrument":dict(INSTRUMENTS[current_symbol()])}
     context['curriculum_version']=CURRICULUM_VERSION
+    context['knowledge']={agent:knowledge_for_agent(agent,full=True) for agent in ('Analyst','Risk & Compliance','Paper Trader')}
     con.execute("INSERT INTO trade_context VALUES (?,?)",(trade_id,json.dumps(context)))
     con.commit(); con.close()
     set_state("cash",s["cash"]-value)
@@ -305,7 +338,7 @@ def reviewer_snapshot():
     report={"closed_trades":len(rows),"wins":len(wins),
             "win_rate_pct":(len(wins)/len(rows)*100 if rows else 0),
             "realized_pnl":pnl,"daily_realized_pnl":today_realized(),
-            "state":get_state(),"learning_review":evidence_review(rows)}
+            "state":get_state(),"learning_review":evidence_review(rows),"knowledge":knowledge_for_agent('Performance Reviewer',full=True)}
     rid=str(uuid.uuid4())
     con=db(); con.execute("INSERT INTO reviews VALUES (?,?,?,?)",(rid,utcnow(),"OPERATIONS",json.dumps(report)))
     con.commit(); con.close()
@@ -464,6 +497,71 @@ def coverage():
 def training_status():
     return dict(curriculum(),evidence=evidence_review(positions()))
 
+AgentName=Literal['Market Data','Analyst','Risk & Compliance','Paper Trader','Logger','Supervisor','Performance Reviewer']
+
+class KnowledgeInput(BaseModel):
+    expected_version: int=Field(default=0,ge=0)
+    title: str=Field(min_length=3,max_length=160)
+    kind: Literal['lesson','hypothesis','experiment']='lesson'
+    status: Literal['draft','in_review','approved','rejected','archived']='draft'
+    content: str=Field(min_length=1,max_length=6000)
+    evidence: str=Field(default='',max_length=4000)
+    source_url: str=Field(default='',max_length=800)
+    agents: list[AgentName]=Field(default_factory=list,max_length=7)
+
+@app.get('/knowledge')
+def knowledge():
+    con=db();rows=con.execute('SELECT * FROM knowledge_entries ORDER BY updated_at DESC,id').fetchall();con.close()
+    return {'entries':[dict(r,agents=json.loads(r['agents'])) for r in rows],'agents':list(AGENTS),
+            'policy':'Approved custom lessons are reference context, not executable trading rules. Experiments are operator-entered records.'}
+
+@app.get('/knowledge/{entry_id}/history')
+def knowledge_history(entry_id: str):
+    con=db();rows=con.execute('SELECT payload FROM knowledge_history WHERE entry_id=? ORDER BY version DESC',(entry_id,)).fetchall();con.close()
+    return [dict(json.loads(r['payload']),agents=json.loads(json.loads(r['payload'])['agents'])) for r in rows]
+
+def validate_knowledge(payload):
+    if not payload.title.strip() or not payload.content.strip():raise HTTPException(422,'Title and content cannot be blank.')
+    if payload.status=='approved' and (not payload.evidence.strip() or not payload.agents):
+        raise HTTPException(422,'Approval requires evidence and at least one assigned agent.')
+    if payload.source_url:
+        parsed=urlparse(payload.source_url)
+        if parsed.scheme not in ('http','https') or not parsed.netloc or parsed.username or parsed.password:
+            raise HTTPException(422,'Source must be an HTTP(S) URL without embedded credentials.')
+
+def write_knowledge(entry_id,payload,old=None):
+    validate_knowledge(payload);con=db()
+    if old:
+        if old['builtin']:raise HTTPException(409,'The installed book curriculum is read-only. Create a related lesson instead.')
+        if payload.expected_version!=old['version']:raise HTTPException(409,'This record changed. Reload it before saving.')
+        version=old['version']+1
+    else:
+        if payload.expected_version!=0:raise HTTPException(409,'New records start at version zero.')
+        if con.execute('SELECT COUNT(*) FROM knowledge_entries').fetchone()[0]>=250:raise HTTPException(409,'Knowledge base limit reached (250 records).')
+        version=1
+    ts=utcnow()
+    con.execute('INSERT OR REPLACE INTO knowledge_entries VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+        (entry_id,version,ts,payload.title.strip(),payload.kind,payload.status,payload.content.strip(),payload.evidence.strip(),payload.source_url.strip(),json.dumps(sorted(set(payload.agents))),0))
+    row=dict(con.execute('SELECT * FROM knowledge_entries WHERE id=?',(entry_id,)).fetchone())
+    con.execute('INSERT INTO knowledge_history VALUES (?,?,?,?)',(entry_id,version,ts,json.dumps(row)))
+    con.commit();con.close()
+    emit('Research Lab','Supervisor','KNOWLEDGE_SAVED','RECORDED','Knowledge record saved.',{'entry_id':entry_id,'version':version,'kind':payload.kind,'review_status':payload.status})
+    return dict(row,agents=json.loads(row['agents']))
+
+@app.post('/knowledge')
+@atomic
+def create_knowledge(payload: KnowledgeInput, x_control_token: str | None=Header(default=None)):
+    require_control(x_control_token)
+    return write_knowledge(str(uuid.uuid4()),payload)
+
+@app.put('/knowledge/{entry_id}')
+@atomic
+def update_knowledge(entry_id: str,payload: KnowledgeInput,x_control_token: str | None=Header(default=None)):
+    require_control(x_control_token);con=db()
+    old=con.execute('SELECT * FROM knowledge_entries WHERE id=?',(entry_id,)).fetchone();con.close()
+    if not old:raise HTTPException(404,'Knowledge record not found.')
+    return write_knowledge(entry_id,payload,old)
+
 @app.get("/messages")
 def messages(limit:int=200):
     con=db(); rows=con.execute("SELECT * FROM messages ORDER BY ts DESC LIMIT ?",(min(max(limit,1),1000),)).fetchall(); con.close()
@@ -563,6 +661,11 @@ def home():
 def journal_ui():
     from pathlib import Path
     return Response(Path(__file__).with_name('journal-ui.js').read_text(encoding='utf-8'),media_type='application/javascript')
+
+@app.get('/research',response_class=HTMLResponse)
+def research_page():
+    from pathlib import Path
+    return HTMLResponse(Path(__file__).with_name('research.html').read_text(encoding='utf-8'))
 
 
 @app.middleware("http")

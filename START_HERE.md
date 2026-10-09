@@ -53,3 +53,7 @@ Paper limits: $5,000 starting balance, three positions maximum, $1,500 aggregate
 Daily backups run on the VM. An additional ledger copy has been downloaded locally; automatic off-server backups remain unconfigured.
 
 The server uses an ephemeral public IP. If Oracle changes it, the dashboard address and deployment configuration must be updated. SSH administration is restricted to an approved connection IP and may need updating when that IP changes.
+
+## Research Lab & Knowledge
+
+[Open the knowledge base](https://tcr.161-33-69-185.sslip.io/research) to save lessons, research ideas and experiment evidence. See [RESEARCH_LAB.md](RESEARCH_LAB.md) for approval, agent assignment and revision history.

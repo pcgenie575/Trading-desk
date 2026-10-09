@@ -29,6 +29,39 @@ class Operations(unittest.TestCase):
     def tearDown(self):
         for item in self.tmp.iterdir(): item.unlink()
         self.tmp.rmdir()
+    def test_knowledge_approval_history_and_restart(self):
+        with TestClient(room.app) as client:
+            self.assertEqual(client.get('/knowledge').status_code,401)
+            self.assertEqual(client.get('/research').status_code,401)
+            client.auth=('operator','test-password')
+            seed=client.get('/knowledge').json()['entries']
+            self.assertEqual(len(seed),5)
+            payload=dict(title='Swing lesson',content='Keep risk explicit',agents=['Analyst'])
+            self.assertEqual(client.post('/knowledge',json=payload).status_code,401)
+            headers={'X-Control-Token':'test-control-token'}
+            draft=client.post('/knowledge',json=payload,headers=headers).json()
+            self.assertNotIn(draft['id'],[r['id'] for r in room.knowledge_for_agent('Analyst')])
+            path='/knowledge/'+draft['id']
+            payload.update(expected_version=1,status='approved')
+            self.assertEqual(client.put(path,json=payload,headers=headers).status_code,422)
+            payload.update(evidence='Observed paper records; limited sample',source_url='javascript:alert(1)')
+            self.assertEqual(client.put(path,json=payload,headers=headers).status_code,422)
+            payload['source_url']='https://example.com/research'
+            approved=client.put(path,json=payload,headers=headers)
+            self.assertEqual(approved.status_code,200)
+            snapshot=room.knowledge_for_agent('Analyst',True)
+            self.assertIn(draft['id'],[r['id'] for r in snapshot])
+            self.assertEqual(client.put(path,json=payload,headers=headers).status_code,409)
+            payload.update(expected_version=2,status='archived')
+            self.assertEqual(client.put(path,json=payload,headers=headers).status_code,200)
+            self.assertNotIn(draft['id'],[r['id'] for r in room.knowledge_for_agent('Analyst')])
+            self.assertIn(draft['id'],[r['id'] for r in snapshot])
+            before=room.get_state();room.init_db()
+            self.assertEqual(room.get_state(),before)
+            self.assertEqual(len(client.get('/knowledge').json()['entries']),6)
+            self.assertEqual([r['version'] for r in client.get(path+'/history').json()],[3,2,1])
+            self.assertEqual(client.put('/knowledge/'+seed[0]['id'],json=dict(payload,expected_version=1),headers=headers).status_code,409)
+
     def test_entry_duplicate_restart_and_exit(self):
         result=room.process_bars(self.bars)
         self.assertEqual(result['status'],'PAPER_ENTRY')
@@ -180,3 +213,4 @@ class Operations(unittest.TestCase):
             self.assertEqual(client.get('/training').json()['version'],room.CURRICULUM_VERSION)
 
 if __name__=='__main__': unittest.main()
+
