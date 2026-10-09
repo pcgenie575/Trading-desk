@@ -768,10 +768,24 @@ class ResearchInput(BaseModel):
     source: str=Field(default='Saved free-provider candles',min_length=3,max_length=400)
 
 @app.get('/experiments')
-def experiments():
-    con=db();rows=[dict(r) for r in con.execute('SELECT id,ts,symbol,dataset_hash,protocol,test_start,test_end,status,payload FROM research_runs ORDER BY ts DESC LIMIT 100')];con.close()
-    for r in rows:r['payload']=json.loads(r['payload']);r['protocol']=json.loads(r['protocol'])
-    return {'runs':rows,'protocol':PROTOCOL,'no_automatic_activation':True,'forward_plans':forward_plans()}
+def experiments(limit:int=10,offset:int=0):
+    limit=min(max(limit,1),20);offset=max(offset,0)
+    con=db();total=con.execute('SELECT COUNT(*) FROM research_runs').fetchone()[0]
+    rows=[dict(r) for r in con.execute('SELECT id,ts,symbol,dataset_hash,protocol,test_start,test_end,status,payload FROM research_runs ORDER BY ts DESC LIMIT ? OFFSET ?',(limit,offset))];con.close()
+    for r in rows:
+        r['payload']=json.loads(r['payload']);r['protocol']=json.loads(r['protocol'])
+        for variant in r['payload'].get('variants',[]):
+            for period in ('development','later_period'):
+                variant[period].pop('equity_curve',None);variant[period].pop('trade_log',None)
+        for baseline in ('benchmark_500','benchmark_full_capital'):
+            if baseline in r['payload']:r['payload'][baseline].pop('equity_curve',None)
+    return {'runs':rows,'total':total,'offset':offset,'limit':limit,'protocol':PROTOCOL,'no_automatic_activation':True,'forward_plans':forward_plans()}
+
+@app.get('/experiments/{run_id}')
+def experiment_result(run_id: str):
+    con=db();row=con.execute('SELECT id,ts,symbol,dataset_hash,protocol,test_start,test_end,status,payload FROM research_runs WHERE id=?',(run_id,)).fetchone();con.close()
+    if not row:raise HTTPException(404,'Experiment not found.')
+    return dict(row,protocol=json.loads(row['protocol']),payload=json.loads(row['payload']))
 
 @app.post('/experiments')
 def run_research(payload: ResearchInput,x_control_token: str | None=Header(default=None)):
