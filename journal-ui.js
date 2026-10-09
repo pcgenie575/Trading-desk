@@ -63,6 +63,7 @@ function renderJournalWorkspace(){
  document.getElementById('journal-analytics').innerHTML=measures.map(([k,v])=>'<div class="journal-stat"><span class="muted">'+k+'</span><strong>'+v+'</strong></div>').join('');
  document.getElementById('journal-curve').innerHTML=journalChart(a);
  renderSwingPanels(rows);
+ renderTradeCalendar();
  document.getElementById('journal-list').innerHTML=rows.length?rows.map(p=>'<button class="trade-row" data-trade="'+esc(p.id)+'" aria-pressed="'+(journalTrade===p.id)+'"><span><b>'+esc(p.symbol)+'</b><small>'+esc(p.entry_time)+' · '+esc(p.context?.strategy||'Earlier trade · plan not captured')+'</small></span><span class="data-state">'+esc(p.status)+'</span><span>'+(p.status==='CLOSED'?money(p.realized_pnl):'Open')+'</span><span class="muted">'+esc(p.review_status||'Not reviewed')+'</span></button>').join(''):'<div class="empty-state">No paper trades match these filters.</div>';
  if(!journalDirty)renderJournalTrade();
  const cfg=snapshot.journal.strategy.config;
@@ -105,3 +106,45 @@ document.getElementById('journal-export').addEventListener('click',()=>{
 });
 document.getElementById('journal-print').addEventListener('click',()=>window.print());
 document.getElementById('journal-month').value=currentTradingMonth();
+
+let calendarWeek=null;
+function calendarDateKey(ms,zone){
+ const parts=new Intl.DateTimeFormat('en-US',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(ms));
+ return ['year','month','day'].map(k=>parts.find(p=>p.type===k).value).join('-');
+}
+function tradeTimestamp(value){
+ if(!value)return null;
+ if(/(Z|[+-]\d\d:\d\d)$/.test(value))return Date.parse(value);
+ const m=/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/.exec(value);if(!m)return null;
+ const wall=Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0));let guess=wall;
+ const formatter=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
+ for(let i=0;i<3;i++){const parts=formatter.formatToParts(new Date(guess)),get=k=>+parts.find(p=>p.type===k).value;const shown=Date.UTC(get('year'),get('month')-1,get('day'),get('hour'),get('minute'),get('second'));guess=wall-(shown-guess)}
+ return guess;
+}
+function weekMonday(key){const day=dateNumber(key);return day-((new Date(day).getUTCDay()+6)%7)*86400000}
+function calendarDays(trades,monday,zone,today){
+ return Array.from({length:7},(_,i)=>{
+  const key=new Date(monday+i*86400000).toISOString().slice(0,10),events=[];let net=0,closed=0;
+  trades.forEach(p=>{const entryMs=tradeTimestamp(p.entry_time),exitMs=tradeTimestamp(p.exit_time);if(entryMs===null||!Number.isFinite(entryMs))return;
+   const entry=calendarDateKey(entryMs,zone),exit=exitMs!==null&&Number.isFinite(exitMs)?calendarDateKey(exitMs,zone):null;
+   if(entry===key)events.push({trade:p,kind:'Entry',tone:'neutral',pnl:null});
+   if(p.status==='CLOSED'&&exit===key){const pnl=p.realized_pnl||0;net+=pnl;closed++;events.push({trade:p,kind:'Closed',tone:pnl>0?'profit':pnl<0?'loss':'neutral',pnl})}
+   else if(entry<key&&key<=today&&(!exit||key<exit))events.push({trade:p,kind:'Holding',tone:'neutral',pnl:null});
+  });return {key,events,net,closed};
+ });
+}
+function renderTradeCalendar(){
+ if(!snapshot?.journal)return;
+ const zone=document.getElementById('calendar-zone').value||'Australia/Perth',today=calendarDateKey(Date.now(),zone);
+ if(calendarWeek===null)calendarWeek=weekMonday(today);
+ const symbol=document.getElementById('journal-symbol').value||'ALL';
+ const days=calendarDays(snapshot.journal.trades.filter(p=>symbol==='ALL'||p.symbol===symbol),calendarWeek,zone,today);
+ const fmt=key=>new Intl.DateTimeFormat('en-AU',{timeZone:'UTC',day:'numeric',month:'short',year:'numeric'}).format(new Date(dateNumber(key)));
+ document.getElementById('calendar-week-label').textContent=fmt(days[0].key)+' – '+fmt(days[6].key);
+ const closed=days.reduce((n,d)=>n+d.closed,0),net=days.reduce((n,d)=>n+d.net,0);
+ document.getElementById('calendar-week-result').innerHTML='<span class="'+(net<0?'negative':net>0?'positive':'muted')+'">'+(closed?money(net):'No closed trades')+'</span> · '+closed+' closures this week';
+ document.getElementById('trade-calendar').innerHTML=days.map((d,i)=>'<article class="calendar-day '+(d.key===today?'today ':'')+(d.closed?(d.net>0?'profit-day':d.net<0?'loss-day':''):'')+'"><header><span>'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]+'</span><b>'+d.key.slice(8)+'</b></header><div class="day-result '+(d.net<0?'negative':d.net>0?'positive':'muted')+'">'+(d.closed?money(d.net):'—')+'</div>'+d.events.map(e=>'<button class="calendar-trade '+e.tone+'" data-calendar-trade="'+esc(e.trade.id)+'"><strong>'+esc(e.trade.symbol)+'</strong><span>'+e.kind+(e.pnl===null?'':' · '+money(e.pnl))+'</span></button>').join('')+(d.events.length?'':'<small class="calendar-empty">No trade events</small>')+'</article>').join('');
+}
+document.getElementById('calendar-controls').addEventListener('click',e=>{const button=e.target.closest('[data-week]');if(!button)return;const zone=document.getElementById('calendar-zone').value||'Australia/Perth';calendarWeek=button.dataset.week==='today'?weekMonday(calendarDateKey(Date.now(),zone)):calendarWeek+Number(button.dataset.week)*7*86400000;renderTradeCalendar()});
+document.getElementById('calendar-zone').addEventListener('change',()=>{calendarWeek=null;renderTradeCalendar()});
+document.getElementById('trade-calendar').addEventListener('click',e=>{const button=e.target.closest('[data-calendar-trade]');if(!button)return;if(journalDirty&&!confirm('Discard unsaved review edits?'))return;journalDirty=false;journalTrade=button.dataset.calendarTrade;document.getElementById('journal-month').value='';renderJournalWorkspace();document.getElementById('journal-detail').scrollIntoView({behavior:'auto',block:'start'})});

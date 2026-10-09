@@ -10,6 +10,12 @@ Open the [Trading Desk](https://tcr.161-33-69-185.sslip.io/) and refresh the pag
 - Recorded results by captured strategy/setup and instrument, with sample counts.
 - Average dollars per trade by holding period and entry weekday. Holding periods use New York calendar dates; weekend entries are excluded from this heat map.
 - Up to eight closing-date weeks and review questions.
+- A Monday–Sunday trade calendar with previous/next/current-week controls. Perth
+  is the default timezone; New York is available. Green/red cards represent
+  profitable/losing closures; entries, carried positions and break-even closures
+  are neutral. Daily and weekly totals count realized closures only. Select a
+  card to open the trade's journal record. The calendar follows the instrument
+  filter independently of the month filter.
 - Saved per-trade notes, review status, rule-adherence assessment and an optional rule-break tag.
 - Active strategy playbook, a capped USD long-position risk-scenario calculator, journal JSON export and browser printing/PDF output.
 
