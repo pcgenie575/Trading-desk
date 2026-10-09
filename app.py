@@ -1,8 +1,11 @@
 from fastapi import FastAPI, HTTPException, Header
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from datetime import datetime, timezone, date
 import sqlite3, uuid, json, threading, os, math, secrets, base64
 from functools import wraps
+from dataclasses import asdict
+from typing import Literal
+from pydantic import BaseModel, Field
 from universe import INSTRUMENTS, DAILY_CREDITS, SCAN_CREDITS, OPEN_REFRESH_SECONDS, SCAN_REFRESH_SECONDS, MAX_OPEN, MAX_EXPOSURE, MAX_PORTFOLIO_PLANNED_LOSS
 from zoneinfo import ZoneInfo
 from fastapi.responses import JSONResponse
@@ -101,7 +104,17 @@ def init_db():
     CREATE TABLE IF NOT EXISTS reviews(
       id TEXT PRIMARY KEY, ts TEXT, kind TEXT, payload TEXT
     );
+    CREATE TABLE IF NOT EXISTS trade_context(
+      trade_id TEXT PRIMARY KEY, payload TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS trade_reviews(
+      trade_id TEXT PRIMARY KEY, updated_at TEXT NOT NULL,
+      review_status TEXT NOT NULL, followed_rules TEXT NOT NULL, notes TEXT NOT NULL,
+      rule_break TEXT NOT NULL DEFAULT 'none'
+    );
     """)
+    if 'rule_break' not in {r['name'] for r in con.execute('PRAGMA table_info(trade_reviews)')}:
+        con.execute("ALTER TABLE trade_reviews ADD COLUMN rule_break TEXT NOT NULL DEFAULT 'none'")
     defaults = {
       "cash": RULES["starting_balance"],
       "equity": RULES["starting_balance"],
@@ -238,6 +251,10 @@ def paper_enter(candidate, bar):
       (id,symbol,status,entry_time,entry_price,qty,stop,position_value,planned_loss)
       VALUES (?,?,?,?,?,?,?,?,?)""",
       (trade_id,current_symbol(),"OPEN",bar["datetime"],entry,qty,candidate["stop"],value,planned))
+    context={"strategy":"Trend Breakout v1","mode":"paper","captured_at":utcnow(),
+             "candidate":candidate,"strategy_config":asdict(CONFIG),"risk_rules":dict(RULES),
+             "instrument":dict(INSTRUMENTS[current_symbol()])}
+    con.execute("INSERT INTO trade_context VALUES (?,?)",(trade_id,json.dumps(context)))
     con.commit(); con.close()
     set_state("cash",s["cash"]-value)
     emit("Paper Trader","Logger","PAPER_ENTRY","OPEN",
@@ -444,6 +461,42 @@ def positions():
     con=db(); rows=con.execute("SELECT * FROM positions ORDER BY entry_time DESC").fetchall(); con.close()
     return [dict(r) for r in rows]
 
+@app.get('/journal')
+def journal():
+    con=db()
+    rows=con.execute('''SELECT p.*,c.payload AS context_payload,r.updated_at AS review_updated_at,
+      r.review_status,r.followed_rules,r.notes,r.rule_break FROM positions p
+      LEFT JOIN trade_context c ON c.trade_id=p.id
+      LEFT JOIN trade_reviews r ON r.trade_id=p.id ORDER BY p.entry_time DESC,p.id''').fetchall()
+    con.close()
+    trades=[]
+    for row in rows:
+        item=dict(row);payload=item.pop('context_payload')
+        item['context']=json.loads(payload) if payload else None
+        trades.append(item)
+    return {'mode':'paper','trades':trades,'strategy':{'name':'Trend Breakout v1','config':asdict(CONFIG)},
+            'export_version':1}
+
+class TradeReviewInput(BaseModel):
+    review_status: Literal['draft','reviewed']='draft'
+    followed_rules: Literal['unknown','yes','partial','no']='unknown'
+    notes: str=Field(default='',max_length=4000)
+    rule_break: Literal['none','moved_stop','oversized','revenge_trade','fomo','other']='none'
+
+@app.put('/journal/{trade_id}/review')
+@atomic
+def save_trade_review(trade_id: str, review: TradeReviewInput, x_control_token: str | None=Header(default=None)):
+    require_control(x_control_token)
+    con=db()
+    if not con.execute('SELECT id FROM positions WHERE id=?',(trade_id,)).fetchone():
+        con.close();raise HTTPException(404,'Paper trade not found.')
+    con.execute('INSERT OR REPLACE INTO trade_reviews(trade_id,updated_at,review_status,followed_rules,notes,rule_break) VALUES (?,?,?,?,?,?)',
+                (trade_id,utcnow(),review.review_status,review.followed_rules,review.notes,review.rule_break))
+    con.commit();con.close()
+    emit('Journal','Supervisor','TRADE_REVIEW_SAVED','RECORDED','Operator saved a paper-trade review.',
+         {'review_status':review.review_status,'followed_rules':review.followed_rules},trade_id)
+    return {'ok':True}
+
 @app.get("/candles")
 def candles(limit:int=100):
     con=db(); rows=con.execute("SELECT * FROM candles ORDER BY bar_time DESC LIMIT ?",(min(max(limit,1),1000),)).fetchall(); con.close()
@@ -492,6 +545,11 @@ def run_backtest(outputsize:int=500, x_control_token: str | None = Header(defaul
 def home():
     from pathlib import Path
     return HTMLResponse(Path(__file__).with_name('dashboard.html').read_text(encoding='utf-8'))
+
+@app.get('/journal-ui.js')
+def journal_ui():
+    from pathlib import Path
+    return Response(Path(__file__).with_name('journal-ui.js').read_text(encoding='utf-8'),media_type='application/javascript')
 
 
 @app.middleware("http")

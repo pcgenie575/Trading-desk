@@ -29,6 +29,12 @@ If you see `ERR_INVALID_AUTH_CREDENTIALS`, try Chrome Incognito or Edge InPrivat
 
 ## Check operation
 
+Use **Journal & analytics** for swing-trade outcomes, holding periods and saved
+reviews. **Plan & playbook** contains the active strategy and a scenario calculator.
+Read [Swing journal guide](SWING_JOURNAL.md) for metric definitions. New trade plans
+are captured automatically; earlier trades are labeled when an original plan is
+unavailable. Select a trade and use your control token to save its review.
+
 Look for a running scheduler, advancing completed-candle timestamps, and new audit entries. The agent flow diagram animates new recorded messages; quiet links are normal between events. Select any agent for details. Polling runs every five minutes; decisions use completed four-hour candles across the bounded free-data watchlist, so a new trade is not expected every poll. Open positions receive priority refreshes every 15 minutes. Public health checks confirm scheduler/process health, not market-data freshness. Check the Market coverage table for each symbol's actual data status.
 
 Last live verification: **10 October 2026 (Perth)**. The updated agent-flow dashboard was served over authenticated HTTPS, all 18 watchlist symbols returned data, and the scheduler was running. A container restart preserved positions, audit records, per-symbol checkpoints and request-budget counters; the cash ledger reconciled and the downloaded backup passed its integrity check. Two paper positions, SPY and AAPL, were open. This is a dated observation, not a continuously updated status report.

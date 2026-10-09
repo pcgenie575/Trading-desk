@@ -10,6 +10,11 @@ verified behavior and remaining limitations.
 
 Project repository: https://github.com/pcgenie575/Trading-desk
 
+The dashboard includes a swing-focused paper journal, R-multiple analytics,
+holding-period/weekday heat map, strategy playbook, risk-scenario calculator and
+saved trade reviews. See **[Swing journal guide](SWING_JOURNAL.md)** for definitions
+and export/report instructions.
+
 This is the consolidated autonomous **paper-trading** release.
 
 ## Operational flow

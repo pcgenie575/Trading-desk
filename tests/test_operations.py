@@ -125,4 +125,36 @@ class Operations(unittest.TestCase):
         self.assertEqual({b['symbol'] for b in room.candles(1000)},{'SPY','BTC/USD'})
         self.assertEqual(room.coverage()['instruments'][-2]['paper_enabled'],False)
 
+    def test_trade_plan_and_review_persist_without_changing_execution(self):
+        room.process_bars(self.bars)
+        position=room.open_position();record=room.journal()['trades'][0]
+        self.assertEqual(record['context']['candidate'],self.sig)
+        self.assertEqual(record['context']['strategy'],'Trend Breakout v1')
+        review=room.TradeReviewInput(review_status='reviewed',followed_rules='partial',rule_break='other',notes='<script>test text</script>')
+        room.save_trade_review(position['id'],review,'test-control-token')
+        room.init_db()
+        stored=room.journal()['trades'][0]
+        self.assertEqual(stored['notes'],review.notes)
+        self.assertEqual(stored['rule_break'],'other')
+        self.assertEqual(room.open_position(),position)
+        self.assertEqual(stored['context'],record['context'])
+        with TestClient(room.app) as client:
+            self.assertEqual(client.get('/journal').status_code,401)
+            client.auth=('operator','test-password')
+            self.assertEqual(client.put('/journal/'+position['id']+'/review',json={}).status_code,401)
+            headers={'X-Control-Token':'test-control-token'}
+            self.assertEqual(client.put('/journal/missing/review',json={},headers=headers).status_code,404)
+            self.assertEqual(client.put('/journal/'+position['id']+'/review',json={'notes':'x'*4001},headers=headers).status_code,422)
+            self.assertEqual(client.put('/journal/'+position['id']+'/review',json={'rule_break':'unsupported'},headers=headers).status_code,422)
+            self.assertEqual(client.get('/journal-ui.js').status_code,200)
+
+    def test_legacy_trade_review_schema_migrates_without_fabricating_plan(self):
+        room.paper_enter(self.sig,self.bars[-1]);pos=room.open_position()
+        con=room.db();con.execute('DELETE FROM trade_context');con.execute('DROP TABLE trade_reviews')
+        con.execute('CREATE TABLE trade_reviews(trade_id TEXT PRIMARY KEY,updated_at TEXT,review_status TEXT,followed_rules TEXT,notes TEXT)')
+        con.execute('INSERT INTO trade_reviews VALUES (?,?,?,?,?)',(pos['id'],'saved','reviewed','yes','existing review'))
+        con.commit();con.close();room.init_db()
+        record=room.journal()['trades'][0]
+        self.assertIsNone(record['context']);self.assertEqual(record['notes'],'existing review');self.assertEqual(record['rule_break'],'none')
+
 if __name__=='__main__': unittest.main()
