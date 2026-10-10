@@ -87,3 +87,8 @@ The [Portfolio Evidence guide](../PORTFOLIO_EVIDENCE.md) documents the shared ri
 ## ETF input and portfolio evidence
 
 [ETF Research guide](../ETF_RESEARCH.md) explains the fixed five-market experiment, raw-price fills, split/distribution accounting, shared risk gates and agent evidence report. [Open the private workflow](https://tcr.161-33-69-185.sslip.io/etf-research). Missing corporate-action coverage blocks performance calculations; this workflow does not activate a strategy. The schema remains at 24 tables and the current test suite has 68 passing tests.
+
+
+## Reviewed research improvements
+
+Read the [recommendations assessment](recommendations-review.md) and [versioned cost diagnostic](cost-diagnostic.md). The new diagnostic distinguishes gross signal results, FX/fee sensitivity and resized trade paths. Registered experiment counts do not imply independent statistical trials; confidence scores stay unavailable without valid inputs.
