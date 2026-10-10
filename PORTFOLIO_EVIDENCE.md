@@ -39,3 +39,8 @@ All six declared daily candidates failed the development cost screen. No candida
 ## Verification
 
 All **59 backend tests** pass. The suite includes shared-account exposure rejection, unchanged earlier results after future prices are added, gap losses and persistent entry freeze, pre-exit excursion bounds, and cash/daily-loss rejection at fill. Deployment acceptance confirms authentication, unchanged paper positions/rules/forward registration, completed replay deduplication and persistence through restart. There are now **24 SQLite tables**; the original 23 remain intact. A subsequent calculation repair counts entry-day exposure in the time-invested percentage; the earlier percentages are retained in the job's metric-correction record. Trades, P/L, drawdowns, gates and protocol do not change.
+
+
+## ETF input and portfolio evidence
+
+[ETF Research guide](ETF_RESEARCH.md) explains the fixed five-market experiment, raw-price fills, split/distribution accounting, shared risk gates and agent evidence report. [Open the private workflow](https://tcr.161-33-69-185.sslip.io/etf-research). Missing corporate-action coverage blocks performance calculations; this workflow does not activate a strategy. The schema remains at 24 tables and the current test suite has 68 passing tests.

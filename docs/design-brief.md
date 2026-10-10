@@ -83,3 +83,8 @@ The schema now includes `edge_lab_runs` (23 tables total). It retains the regist
 Portfolio Evidence uses the existing dark/navy and mint workspace style, with normal/stress result cards, equity/high-water curves, denied-risk counts and an excursion table. Missing legacy measurements display unknown rather than fabricated values. The paper-only scope and unmet data gates remain visible.
 
 See [Portfolio Evidence](../PORTFOLIO_EVIDENCE.md) for exact protocol, negative results and remaining evidence gates.
+
+
+## ETF input and portfolio evidence
+
+[ETF Research guide](../ETF_RESEARCH.md) explains the fixed five-market experiment, raw-price fills, split/distribution accounting, shared risk gates and agent evidence report. [Open the private workflow](https://tcr.161-33-69-185.sslip.io/etf-research). Missing corporate-action coverage blocks performance calculations; this workflow does not activate a strategy. The schema remains at 24 tables and the current test suite has 68 passing tests.

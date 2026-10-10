@@ -1198,4 +1198,6 @@ def control_evidence_page():
 
 from edge_lab_api import install as install_edge_lab
 EDGE_LAB=install_edge_lab(app,globals())
+from etf_lab_api import install as install_etf_lab
+ETF_LAB=install_etf_lab(app,globals())
 

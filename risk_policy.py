@@ -6,7 +6,9 @@ from agent_curriculum import candidate_integrity
 from exposure import check as exposure_check,SECTOR,GROUP
 from universe import INSTRUMENTS,MAX_OPEN,MAX_EXPOSURE,MAX_PORTFOLIO_PLANNED_LOSS
 
-def assess(candidate, symbol, s, active, daily_realized, series, rules):
+def assess(candidate, symbol, s, active, daily_realized, series, rules,*,instruments=None,sectors=None,groups=None,equity_groups=None):
+    instruments=INSTRUMENTS if instruments is None else instruments;sectors=SECTOR if sectors is None else sectors;groups=GROUP if groups is None else groups
+    equity_groups={'US equity'} if equity_groups is None else equity_groups
     checks=[]
     def gate(code,passed,detail):checks.append({'code':code,'status':'PASS' if passed else 'FAIL','detail':detail if not passed or isinstance(detail,dict) else 'Within configured constraint.'})
     consistent,reason=candidate_integrity(candidate)
@@ -23,14 +25,14 @@ def assess(candidate, symbol, s, active, daily_realized, series, rules):
     gate('PORTFOLIO_COST',sum(p['position_value'] for p in active)+risk_value<=MAX_EXPOSURE+1e-6,'Portfolio exposure limit reached.')
     gate('PORTFOLIO_LOSS',sum(p['planned_loss'] for p in active)+risk_loss<=MAX_PORTFOLIO_PLANNED_LOSS+1e-6,'Portfolio planned-loss limit reached.')
     gate('CASH',risk_value<=s['cash'],'Insufficient paper cash.')
-    gate('PAPER_ELIGIBLE',bool(INSTRUMENTS.get(symbol,{}).get('paper_enabled')),'Instrument is observation only.')
+    gate('PAPER_ELIGIBLE',bool(instruments.get(symbol,{}).get('paper_enabled')),'Instrument is observation only.')
     gate('DAILY_LOSS',daily_realized>-rules['daily_loss_stop'],'Daily loss circuit breaker reached.')
     gate('POSITION_COST',risk_value<=rules['max_position']+1e-6,'Maximum position exceeded.')
     gate('POSITION_LOSS',risk_loss<=rules['max_planned_loss']+1e-6,'Maximum planned loss exceeded.')
-    sector=SECTOR.get(symbol,'Unknown');group=GROUP.get(symbol,'Unknown')
-    gate('SECTOR',risk_value+sum(p['position_value'] for p in active if SECTOR.get(p['symbol'],'Unknown')==sector)<=750+1e-6,'Sector exposure exceeds $750.')
-    gate('EQUITY_GROUP',group!='US equity' or risk_value+sum(p['position_value'] for p in active if GROUP.get(p['symbol'])==group)<=1000+1e-6,'US equity overlap exceeds $1,000.')
-    allowed,details=exposure_check(symbol,risk_value,active,series)
+    sector=sectors.get(symbol,'Unknown');group=groups.get(symbol,'Unknown')
+    gate('SECTOR',risk_value+sum(p['position_value'] for p in active if sectors.get(p['symbol'],'Unknown')==sector)<=750+1e-6,'Sector exposure exceeds $750.')
+    gate('EQUITY_GROUP',group not in equity_groups or risk_value+sum(p['position_value'] for p in active if groups.get(p['symbol']) in equity_groups)<=1000+1e-6,'US equity overlap exceeds $1,000.')
+    allowed,details=exposure_check(symbol,risk_value,active,series,sectors=sectors,groups=groups,equity_groups=equity_groups)
     gate('CONCENTRATION_COMBINED',allowed,details)
     failed=[c for c in checks if c['status']=='FAIL']
     return {'approved':not failed,'reason':failed[0]['detail'] if failed else 'All deterministic risk and concentration checks passed.','checks':checks}

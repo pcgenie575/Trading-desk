@@ -14,14 +14,16 @@ def correlation(a,b):
     if not xx or not yy:return None,len(pairs)
     return sum((u-mx)*(v-my) for u,v in pairs)/math.sqrt(xx*yy),len(pairs)
 
-def check(symbol,value,active,series):
-    sector=SECTOR.get(symbol,'Unknown');group=GROUP.get(symbol,'Unknown')
-    if value+sum(p['position_value'] for p in active if SECTOR.get(p['symbol'],'Unknown')==sector)>750+1e-6:return False,'Sector exposure exceeds $750.'
-    if group=='US equity' and value+sum(p['position_value'] for p in active if GROUP.get(p['symbol'])==group)>1000+1e-6:return False,'US equity overlap exceeds $1,000.'
+def check(symbol,value,active,series,*,sectors=None,groups=None,equity_groups=None):
+    sectors=SECTOR if sectors is None else sectors;groups=GROUP if groups is None else groups
+    equity_groups={'US equity'} if equity_groups is None else equity_groups
+    sector=sectors.get(symbol,'Unknown');group=groups.get(symbol,'Unknown')
+    if value+sum(p['position_value'] for p in active if sectors.get(p['symbol'],'Unknown')==sector)>750+1e-6:return False,'Sector exposure exceeds $750.'
+    if group in equity_groups and value+sum(p['position_value'] for p in active if groups.get(p['symbol']) in equity_groups)>1000+1e-6:return False,'US equity overlap exceeds $1,000.'
     cluster=value;details=[]
     for p in active:
         corr,n=correlation(series.get(symbol,{}),series.get(p['symbol'],{}))
-        conservative=corr is None and GROUP.get(p['symbol'])==group
+        conservative=corr is None and groups.get(p['symbol'])==group
         if conservative or (corr is not None and corr>=.8):cluster+=p['position_value']
         details.append({'symbol':p['symbol'],'correlation':corr,'aligned_returns':n,'fallback':conservative})
     if cluster>750+1e-6:return False,'Correlated exposure exceeds $750 (unknown same-group correlations count as overlapping).'

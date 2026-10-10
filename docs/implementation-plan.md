@@ -89,3 +89,8 @@ The schema now includes `edge_lab_runs` (23 tables total). It retains the regist
 Completed: shared pure risk policy, development-only shared-account daily replay, baseline reference, MAE/MFE collection, authenticated UI/API, restart verification, six bounded free-data probes and 59 passing backend checks. Still gated: new ETF strategy activation, earnings blackouts, raw-price corporate-action accounting, AUD/tax reporting, higher risk and a second strategy.
 
 See [Portfolio Evidence](../PORTFOLIO_EVIDENCE.md) for exact protocol, negative results and remaining evidence gates.
+
+
+## ETF input and portfolio evidence
+
+[ETF Research guide](../ETF_RESEARCH.md) explains the fixed five-market experiment, raw-price fills, split/distribution accounting, shared risk gates and agent evidence report. [Open the private workflow](https://tcr.161-33-69-185.sslip.io/etf-research). Missing corporate-action coverage blocks performance calculations; this workflow does not activate a strategy. The schema remains at 24 tables and the current test suite has 68 passing tests.
