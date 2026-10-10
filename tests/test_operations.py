@@ -18,6 +18,10 @@ from fastapi.testclient import TestClient
 
 class Operations(unittest.TestCase):
     def setUp(self):
+        # Legacy operation fixtures deliberately use synthetic off-session timestamps.
+        # Real session/no-lookahead gates are exercised unmocked in test_controls.
+        self.quality_patch=patch.object(room,'assess_quality',side_effect=lambda symbol,bars,**kw:dict(version='synthetic-fixture',symbol=symbol,entry_allowed=True,quarantined=False,issues=[],warnings=[],last_bar=bars[-1]['datetime'],context_hash=str(hash(str(bars)))))
+        self.quality_patch.start()
         self.tmp=Path(os.getenv('TCR_TEST_DIR',str(Path.cwd()/'work'/'validation')))/str(uuid.uuid4())
         self.tmp.mkdir(parents=True)
         room.DB=str(self.tmp/'ledger.db')
@@ -27,6 +31,7 @@ class Operations(unittest.TestCase):
         self.bars[-1].update(open=109,high=111,low=108,close=110)
         self.sig=room.signal_from_bars(self.bars)
     def tearDown(self):
+        self.quality_patch.stop()
         for item in self.tmp.iterdir(): item.unlink()
         self.tmp.rmdir()
     def test_knowledge_approval_history_and_restart(self):
@@ -86,9 +91,13 @@ class Operations(unittest.TestCase):
         self.assertAlmostEqual(room.get_state()['cash'],5000+closed['realized_pnl'])
         self.assertTrue(any(m['type']=='PAPER_EXIT' for m in room.messages()))
     def test_transaction_rolls_back_on_failure(self):
+        room.process_bars(self.bars)
+        con=room.db();candidate=__import__('json').loads(con.execute('SELECT payload FROM pending_orders').fetchone()[0]);con.close()
+        bar=dict(self.bars[-1],datetime=(datetime.fromisoformat(self.bars[-1]['datetime'])+timedelta(hours=8)).isoformat(sep=' '),open=112,high=114,low=111,close=113)
+        room.save_candles([bar]);room.check_data_quality([bar])
         before=room.get_state()
         with patch.object(room,'emit',side_effect=RuntimeError('injected failure')):
-            with self.assertRaises(RuntimeError): room.paper_enter(self.sig,self.bars[-1])
+            with self.assertRaises(RuntimeError): room.paper_enter(candidate,dict(bar,fill_open=112))
         self.assertEqual(before,room.get_state())
         self.assertIsNone(room.open_position())
     def test_daily_drawdown_and_invalid_risk(self):
@@ -193,7 +202,7 @@ class Operations(unittest.TestCase):
             self.assertEqual(client.get('/journal-ui.js').status_code,200)
 
     def test_legacy_trade_review_schema_migrates_without_fabricating_plan(self):
-        room.paper_enter(self.sig,self.bars[-1]);pos=room.open_position()
+        room.process_bars(self.bars);self.fill_next();pos=room.open_position()
         con=room.db();con.execute('DELETE FROM trade_context');con.execute('DROP TABLE trade_reviews')
         con.execute('CREATE TABLE trade_reviews(trade_id TEXT PRIMARY KEY,updated_at TEXT,review_status TEXT,followed_rules TEXT,notes TEXT)')
         con.execute('INSERT INTO trade_reviews VALUES (?,?,?,?,?)',(pos['id'],'saved','reviewed','yes','existing review'))

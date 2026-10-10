@@ -53,3 +53,9 @@ Source release: [a8e8ed0](https://github.com/pcgenie575/Trading-desk/tree/a8e8ed
 26 backend tests passed, including known RSI/ATR cases, trend direction, aligned relative strength, unknown volume, no future-data leakage, immutable lesson provenance, authenticated read-only APIs, snapshots/restart and existing ledger/risk/research tests. Mocked browser logic checks cover chart rendering, instrument selection, empty data, escaped lessons and unavailable metrics. These do not constitute a live visual/accessibility browser review.
 
 Changing entry rules to use these tools requires a separately versioned research hypothesis and validation period. This release enriches evidence and transparency without altering the existing forward test or promoting a new strategy.
+
+## Decision controls release — 10 October 2026
+
+[Open Decision Evidence](https://tcr.161-33-69-185.sslip.io/controls). New proposals carry durable single-use signed approvals; execution rechecks risk and the validated opening. Individual risk checks and raw proposal/fill evidence are retained. Session-aware quality gates block missing/stale entries and quarantine suspect prices. Existing signal/exit formulas, numeric limits and the reserved research protocol remain fixed, but stricter gates can prevent entries. New closed-trade attribution preserves regime and decision provenance; missing legacy evidence stays unknown.
+
+Read [Control Boundaries](CONTROL_BOUNDARIES.md) for exact controls, migration, recovery and limitations. Unsigned legacy pending buys are cancelled with their original payload retained in audit; existing positions and exit queues remain. Validation: 47 backend tests and UI logic checks; live visual review remains incomplete.

@@ -40,3 +40,9 @@ Cash check: starting balance + closed realised P/L − open entry cost = cash. C
 Cloud verification on 10 October 2026 Perth time confirmed six specialty previews, authenticated HTTPS, a healthy running scheduler and saved Logger reports surviving restart. Existing entries and the reserved research registration/protocol were preserved; the paper cash ledger reconciled. No extra provider requests are made by these read-only previews. Zero operational paper trades were closed at this check. This dated verification is not a current-status guarantee or evidence of profitability.
 
 See [documentation index](docs/README.md), [Agent learning](AGENT_LEARNING.md) and [Research Lab](RESEARCH_LAB.md). Future changes to executable rules need versioned implementation and separate validation; lessons alone never activate them.
+
+## Decision controls release — 10 October 2026
+
+[Open Decision Evidence](https://tcr.161-33-69-185.sslip.io/controls). New proposals carry durable single-use signed approvals; execution rechecks risk and the validated opening. Individual risk checks and raw proposal/fill evidence are retained. Session-aware quality gates block missing/stale entries and quarantine suspect prices. Existing signal/exit formulas, numeric limits and the reserved research protocol remain fixed, but stricter gates can prevent entries. New closed-trade attribution preserves regime and decision provenance; missing legacy evidence stays unknown.
+
+Read [Control Boundaries](CONTROL_BOUNDARIES.md) for exact controls, migration, recovery and limitations. Unsigned legacy pending buys are cancelled with their original payload retained in audit; existing positions and exit queues remain. Validation: 47 backend tests and UI logic checks; live visual review remains incomplete.

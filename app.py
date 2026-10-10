@@ -6,8 +6,10 @@ from functools import wraps
 from dataclasses import asdict
 from analyst_tools import analyse, VERSION as ANALYST_VERSION, PARAMETERS as ANALYST_PARAMETERS
 from specialty_brains import build as build_specialty_brains, VERSION as SPECIALTY_VERSION, SPECIALTIES
+from data_quality import assess as assess_quality
+from decision_contracts import digest as contract_digest, sign as contract_sign, verify as contract_verify, VERSION as CONTRACT_VERSION
 from execution import COSTS, fill, sized_entry
-from exposure import check as exposure_check, LIMITS as EXPOSURE_LIMITS
+from exposure import check as exposure_check, LIMITS as EXPOSURE_LIMITS, SECTOR, GROUP
 from research_engine import compare, validate_bars, fingerprint, PROTOCOL
 from urllib.parse import urlparse
 from typing import Literal
@@ -122,6 +124,11 @@ def init_db():
     );
     CREATE TABLE IF NOT EXISTS analyst_reports(symbol TEXT,bar_time TEXT,version TEXT,context_hash TEXT,created_at TEXT,payload TEXT,PRIMARY KEY(symbol,bar_time,version,context_hash));
     CREATE TABLE IF NOT EXISTS agent_reports(role TEXT,version TEXT,context_hash TEXT,created_at TEXT,payload TEXT,PRIMARY KEY(role,version,context_hash));
+    CREATE TABLE IF NOT EXISTS proposals(id TEXT PRIMARY KEY,ts TEXT,symbol TEXT,payload TEXT,digest TEXT);
+    CREATE TABLE IF NOT EXISTS risk_decisions(id TEXT PRIMARY KEY,proposal_id TEXT,ts TEXT,phase TEXT,decision TEXT,payload TEXT);
+    CREATE TABLE IF NOT EXISTS decision_consumptions(approval_id TEXT PRIMARY KEY,trade_id TEXT UNIQUE,ts TEXT);
+    CREATE TABLE IF NOT EXISTS quality_reports(symbol TEXT,context_hash TEXT,ts TEXT,payload TEXT,PRIMARY KEY(symbol,context_hash));
+    CREATE TABLE IF NOT EXISTS candle_revision_reviews(id TEXT PRIMARY KEY,symbol TEXT,ts TEXT,quality_hash TEXT,reason TEXT,payload TEXT);
     CREATE TABLE IF NOT EXISTS pending_orders(symbol TEXT PRIMARY KEY,side TEXT,signal_time TEXT,payload TEXT);
     CREATE TABLE IF NOT EXISTS research_runs(id TEXT PRIMARY KEY,ts TEXT,symbol TEXT,dataset_hash TEXT,protocol TEXT,test_start TEXT,test_end TEXT,status TEXT,payload TEXT,dataset TEXT);
     CREATE TABLE IF NOT EXISTS forward_plans(id TEXT PRIMARY KEY,symbol TEXT,registered_at TEXT,protocol TEXT,status TEXT,run_id TEXT);
@@ -265,27 +272,32 @@ def freeze_system(reason):
     set_state("frozen",True); set_state("freeze_reason",reason)
     emit("Supervisor","ALL","FREEZE","FROZEN",reason)
 
-def risk_check(candidate):
+def risk_assessment(candidate):
+    checks=[]
+    def gate(code,passed,detail):checks.append({'code':code,'status':'PASS' if passed else 'FAIL','detail':detail if not passed or isinstance(detail,dict) else 'Within configured constraint.'})
     consistent,reason=candidate_integrity(candidate)
-    if not consistent:return False,'Book-informed sizing check: '+reason
-    if not all(isinstance(candidate.get(k), (int, float)) and math.isfinite(candidate[k]) and candidate[k] > 0 for k in ("quantity", "position_value", "planned_loss", "stop", "entry_reference")):
-        return False, "Invalid candidate values."
-    if candidate["stop"] >= candidate["entry_reference"]: return False, "Invalid protective stop."
+    gate('SIZING_INTEGRITY',consistent,reason)
+    if not consistent:return {'approved':False,'reason':'Book-informed sizing check: '+reason,'checks':checks}
     risk_value=candidate.get('cash_cost',candidate['position_value']);risk_loss=candidate.get('cost_adjusted_risk',candidate['planned_loss'])
+    if not all(type(v) in (int,float) and math.isfinite(v) and v>0 for v in (risk_value,risk_loss)):
+        gate('COST_ADJUSTED_VALUES',False,'Costs and loss must be finite and positive.')
+        return {'approved':False,'reason':'Invalid cost-adjusted values.','checks':checks}
     s=get_state()
-    if s["peak_equity"]-s["equity"] >= RULES["drawdown_freeze"]: return False, "Drawdown circuit breaker reached."
-    if s["frozen"]: return False, "System is frozen."
-    if open_position(): return False, "An open position already exists for this symbol."
+    gate('DRAWDOWN',s['peak_equity']-s['equity']<RULES['drawdown_freeze'],'Drawdown circuit breaker reached.')
+    gate('NOT_FROZEN',not s['frozen'],'System is frozen.')
+    gate('NO_DUPLICATE_POSITION',not open_position(),'An open position already exists for this symbol.')
     active=open_positions()
-    if len(active)>=MAX_OPEN: return False, "Maximum open positions reached."
-    if sum(p["position_value"] for p in active)+risk_value > MAX_EXPOSURE+1e-6: return False, "Portfolio exposure limit reached."
-    if sum(p["planned_loss"] for p in active)+risk_loss > MAX_PORTFOLIO_PLANNED_LOSS+1e-6: return False, "Portfolio planned-loss limit reached."
-    if risk_value>s["cash"]: return False, "Insufficient paper cash."
-    if not INSTRUMENTS.get(current_symbol(),{}).get("paper_enabled"): return False, "Instrument is observation only."
-    if today_realized() <= -RULES["daily_loss_stop"]: return False, "Daily loss circuit breaker reached."
-    if risk_value > RULES["max_position"]+1e-6: return False, "Maximum position exceeded."
-    if risk_loss > RULES["max_planned_loss"]+1e-6: return False, "Maximum planned loss exceeded."
-    if candidate.get("quantity",0) <= 0: return False, "Invalid quantity."
+    gate('POSITION_COUNT',len(active)<MAX_OPEN,'Maximum open positions reached.')
+    gate('PORTFOLIO_COST',sum(p['position_value'] for p in active)+risk_value<=MAX_EXPOSURE+1e-6,'Portfolio exposure limit reached.')
+    gate('PORTFOLIO_LOSS',sum(p['planned_loss'] for p in active)+risk_loss<=MAX_PORTFOLIO_PLANNED_LOSS+1e-6,'Portfolio planned-loss limit reached.')
+    gate('CASH',risk_value<=s['cash'],'Insufficient paper cash.')
+    gate('PAPER_ELIGIBLE',bool(INSTRUMENTS.get(current_symbol(),{}).get('paper_enabled')),'Instrument is observation only.')
+    gate('DAILY_LOSS',today_realized()>-RULES['daily_loss_stop'],'Daily loss circuit breaker reached.')
+    gate('POSITION_COST',risk_value<=RULES['max_position']+1e-6,'Maximum position exceeded.')
+    gate('POSITION_LOSS',risk_loss<=RULES['max_planned_loss']+1e-6,'Maximum planned loss exceeded.')
+    sector=SECTOR.get(current_symbol(),'Unknown');group=GROUP.get(current_symbol(),'Unknown')
+    gate('SECTOR',risk_value+sum(p['position_value'] for p in active if SECTOR.get(p['symbol'],'Unknown')==sector)<=750+1e-6,'Sector exposure exceeds $750.')
+    gate('EQUITY_GROUP',group!='US equity' or risk_value+sum(p['position_value'] for p in active if GROUP.get(p['symbol'])==group)<=1000+1e-6,'US equity overlap exceeds $1,000.')
     series={}
     con=db();cutoff=(datetime.now(ZoneInfo('America/New_York')).replace(tzinfo=None)-timedelta(days=10)).isoformat(sep=' ')
     for symbol in {current_symbol(),*(p['symbol'] for p in active)}:
@@ -293,20 +305,30 @@ def risk_check(candidate):
         series[symbol]={r['bar_time']:r['close'] for r in rows} if rows and rows[0]['bar_time']>=cutoff else {}
     con.close()
     allowed,details=exposure_check(current_symbol(),risk_value,active,series)
-    if not allowed:return False,details
-    return True, "All deterministic risk and concentration checks passed."
+    gate('CONCENTRATION_COMBINED',allowed,details)
+    failed=[c for c in checks if c['status']=='FAIL']
+    return {'approved':not failed,'reason':failed[0]['detail'] if failed else 'All deterministic risk and concentration checks passed.','checks':checks}
+
+def risk_check(candidate):
+    report=risk_assessment(candidate);return report['approved'],report['reason']
 
 @atomic
 def paper_enter(candidate, bar):
+    valid,contract_reason=validate_approval(candidate,bar)
+    if not valid:
+        emit('Risk & Compliance','Paper Trader','CONTRACT_REJECTED','BLOCKED',contract_reason,{'proposal_id':candidate.get('proposal_id')})
+        return None
     trade_id=str(uuid.uuid4())
     raw=float(bar.get('fill_open',bar['close']))
     f=sized_entry(raw,float(candidate['stop']),get_state()['cash'],max_qty=float(candidate['quantity']))
     if not f:
-        emit('Risk & Compliance','Paper Trader','FILL_REJECTED','BLOCKED','Gap or costs invalidate the planned entry.')
+        emit('Risk & Compliance','Paper Trader','FILL_REJECTED','BLOCKED','Gap or costs invalidate the planned entry.',{'proposal_id':candidate['proposal_id'],'approval_id':candidate['approval_id']})
         return None
     entry=f['price'];qty=f['qty'];value=f['cash'];planned=f['planned_loss'];s=get_state()
     checked=dict(candidate,entry_reference=entry,quantity=qty,position_value=entry*qty,planned_loss=qty*(entry-candidate['stop']),cash_cost=value,cost_adjusted_risk=planned)
-    approved,reason=risk_check(checked)
+    checked['fill_evidence']={'bar':dict(bar),'execution_model':asdict(COSTS),'quality':json.loads(state_raw()['quality:'+current_symbol()]),'proposed_fill':f}
+    decision=record_risk_decision(candidate['proposal_id'],checked,'FILL')
+    approved,reason=decision['approved'],decision['reason']
     if not approved:emit('Risk & Compliance','Paper Trader','FILL_REJECTED','BLOCKED',reason);return None
     con=db()
     con.execute("""INSERT INTO positions
@@ -317,14 +339,17 @@ def paper_enter(candidate, bar):
              "candidate":candidate,"strategy_config":asdict(CONFIG),"risk_rules":dict(RULES),
              "instrument":dict(INSTRUMENTS[current_symbol()])}
     context['execution']={'model':asdict(COSTS),'entry':f,'signal_time':candidate.get('signal_time'),'fill_basis':'Next eligible candle open; reconstructed after delayed candle arrival' if 'fill_open' in bar else 'Direct test/helper fill'}
+    context['decision_contract']={'version':CONTRACT_VERSION,'proposal_id':candidate['proposal_id'],'queue_approval_id':candidate['approval_id'],'fill_decision_id':decision['id']}
+    context['attribution']={'entry_regime':candidate.get('analysis',{}).get('trend',{}).get('regime','UNKNOWN'),'market_regime':candidate.get('analysis',{}).get('market',{}).get('regime','UNKNOWN'),'atr_pct':candidate.get('analysis',{}).get('atr_pct'),'relative_strength':candidate.get('analysis',{}).get('relative_strength'),'quality_hash':candidate.get('quality',{}).get('context_hash'),'strategy':'Trend Breakout v1'}
     context['curriculum_version']=CURRICULUM_VERSION
     context['knowledge']={agent:knowledge_for_agent(agent,full=True) for agent in ('Analyst','Risk & Compliance','Paper Trader')}
     con.execute("INSERT INTO trade_context VALUES (?,?)",(trade_id,json.dumps(context)))
+    con.execute('INSERT INTO decision_consumptions VALUES (?,?,?)',(candidate['approval_id'],trade_id,utcnow()))
     con.commit(); con.close()
     set_state("cash",s["cash"]-value)
     emit("Paper Trader","Logger","PAPER_ENTRY","OPEN",
          f"Opened simulated {current_symbol()} long: {qty:.4f} shares at ${entry:.2f}.",
-         {"qty":qty,"entry":entry,"stop":candidate["stop"],"value":value,"planned_loss":planned},trade_id)
+         {"qty":qty,"entry":entry,"stop":candidate["stop"],"value":value,"planned_loss":planned,'proposal_id':candidate['proposal_id'],'approval_id':candidate['approval_id'],'fill_decision_id':decision['id']},trade_id)
     return trade_id
 
 @atomic
@@ -410,6 +435,10 @@ def autonomous_cycle(force=False):
                 bars=TwelveDataAdapter().latest_completed_bars(symbol,'4h',100)
                 if not bars:
                     set_state('coverage:'+symbol,'NO_COMPLETED_DATA');continue
+                quality=check_data_quality(bars)
+                if quality['quarantined']:
+                    freeze_system('Data quarantine for '+symbol+': '+', '.join(i['code'] for i in quality['issues']))
+                    set_state('coverage:'+symbol,'DATA_QUARANTINED');results[symbol]={'status':'DATA_QUARANTINED'};continue
                 set_state('coverage:'+symbol,'DATA_RECEIVED')
                 set_state('feed_success:'+symbol,utcnow())
                 processed=state_raw().get(checkpoint_key(),'')
@@ -434,6 +463,10 @@ def autonomous_cycle(force=False):
 
 @atomic
 def process_bars(bars, allow_entry=True):
+        quality=check_data_quality(bars)
+        if quality['quarantined']:
+            freeze_system('Data quarantine for '+current_symbol()+': '+', '.join(i['code'] for i in quality['issues']))
+            return {'status':'DATA_QUARANTINED','quality':quality}
         save_candles(bars)
         processed=state_raw().get(checkpoint_key(), "")
         if processed and bars[-1]["datetime"] <= processed:
@@ -458,11 +491,11 @@ def process_bars(bars, allow_entry=True):
                 if pos and pos['id']==payload['trade_id']:paper_exit(pos,min(float(bar['open']),pos['stop']),bar['datetime'],payload['reason']) if float(bar['open'])<pos['stop'] else paper_exit(pos,float(bar['open']),bar['datetime'],payload['reason'])
             else:
                 stale=datetime.fromisoformat(bar['datetime'])-datetime.fromisoformat(order['signal_time'])>timedelta(days=7)
-                if not stale and INSTRUMENTS[current_symbol()]['paper_enabled']:
+                if not stale and quality['entry_allowed'] and INSTRUMENTS[current_symbol()]['paper_enabled']:
                     tid=paper_enter(payload,dict(bar,fill_open=float(bar['open'])))
                     if tid:
                         process_exit(bars);update_equity(float(bar['close']));return {'status':'PAPER_ENTRY','trade_id':tid}
-                else:emit('Supervisor','Paper Trader','ORDER_EXPIRED','NO_ACTION','Pending entry expired.')
+                else:emit('Supervisor','Paper Trader','ORDER_EXPIRED' if stale else 'DATA_ENTRY_BLOCKED','NO_ACTION','Pending entry expired or current data-quality gate failed.',{'proposal_id':payload.get('proposal_id'),'quality':quality})
             update_equity(float(bar['close']))
             return {'status':'ORDER_PROCESSED'}
         update_equity(float(bars[-1]["close"]))
@@ -480,6 +513,9 @@ def process_bars(bars, allow_entry=True):
         if not allow_entry or (datetime.now(timezone.utc)-opened.astimezone(timezone.utc)).total_seconds() > 86400:
             emit("Supervisor","Analyst","ENTRY_SKIPPED","NO_ACTION","Historical, stale or observation-only candle; no entry.")
             return {"status":"ENTRY_SKIPPED"}
+        if not quality['entry_allowed']:
+            emit('Market Data','Risk & Compliance','DATA_ENTRY_BLOCKED','BLOCKED','Expected session data is incomplete or stale.',quality)
+            return {'status':'DATA_ENTRY_BLOCKED'}
         sig=signal_from_bars(bars)
         sig['learning']=analyst_guidance(sig)
         sig['analysis']=analysis
@@ -487,12 +523,15 @@ def process_bars(bars, allow_entry=True):
              "PENDING" if sig["signal"]=="CANDIDATE" else "NO_ACTION",sig["reason"],sig)
         if sig["signal"]!="CANDIDATE":
             return sig
-
-        approved,reason=risk_check(sig)
+        sig['signal_time']=bars[-1]['datetime'];sig['queued_at']=utcnow();sig['quality']=quality
+        sig['data_snapshot']={'source':'Validated saved/provider four-hour candles','currency':'USD','timezone':'America/New_York','fetch_attempt_at':state_raw().get('fetch:'+current_symbol()),'bars':[dict(b) for b in bars]}
+        sig=register_proposal(sig)
+        decision=record_risk_decision(sig['proposal_id'],sig,'QUEUE')
+        approved,reason=decision['approved'],decision['reason']
         emit("Risk & Compliance","Paper Trader","APPROVED" if approved else "REJECTED",
              "APPROVED" if approved else "BLOCKED",reason,sig)
         if approved:
-            sig['signal_time']=bars[-1]['datetime'];sig['queued_at']=utcnow()
+            sig['approval_id']=decision['id']
             con=db();con.execute('INSERT OR REPLACE INTO pending_orders VALUES (?,?,?,?)',(current_symbol(),'buy',bars[-1]['datetime'],json.dumps(sig)));con.commit();con.close()
             emit('Paper Trader','Logger','ENTRY_QUEUED','PENDING','Signal waits for a later eligible candle open; costs and risk are rechecked at fill.',sig)
             return {'status':'ENTRY_QUEUED'}
@@ -532,6 +571,8 @@ def startup():
     seed_analyst_reports()
     register_forward_plan()
     maybe_weekly_report()
+    cancel_legacy_entries()
+    seed_quality_reports()
     save_specialty_reports()
     training=curriculum()
     if not training['self_check']['passed']:raise RuntimeError('Curriculum self-check failed.')
@@ -700,6 +741,8 @@ def freeze(x_control_token: str | None = Header(default=None)):
 @app.post("/resume")
 def resume(x_control_token: str | None = Header(default=None)):
     require_control(x_control_token)
+    if any(json.loads(v).get('quarantined') for k,v in state_raw().items() if k.startswith('quality:')):
+        raise HTTPException(409,'Data quarantine remains active; a clean validated feed is required before manual resume.')
     s=get_state()
     if today_realized() <= -RULES["daily_loss_stop"] or s["peak_equity"]-s["equity"] >= RULES["drawdown_freeze"]:
         raise HTTPException(409,"Risk circuit breaker remains active.")
@@ -974,3 +1017,181 @@ def agent_brain_history(role:str,limit:int=20):
 def brains_page():
     from pathlib import Path
     return HTMLResponse(Path(__file__).with_name('brains.html').read_text(encoding='utf-8'))
+
+@atomic
+def check_data_quality(bars):
+    con=db();saved={r['bar_time']:dict(r) for r in con.execute("SELECT bar_time,open,high,low,close FROM candles WHERE symbol=? AND interval='4h' ORDER BY bar_time DESC LIMIT 100",(current_symbol(),))}
+    report=assess_quality(current_symbol(),bars,saved=saved)
+    safe_input=[{k:str(v) if isinstance(v,float) and not math.isfinite(v) else v for k,v in b.items()} for b in bars]
+    inserted=con.execute('INSERT OR IGNORE INTO quality_reports VALUES (?,?,?,?)',(current_symbol(),report['context_hash'],utcnow(),json.dumps(dict(report,input_bars=safe_input)))).rowcount;con.commit();con.close()
+    set_state('quality:'+current_symbol(),json.dumps(report))
+    if inserted:emit('Market Data','Risk & Compliance','DATA_QUALITY','PASS' if report['entry_allowed'] else 'BLOCKED','Completed session-data assessment.',report)
+    return report
+
+def seed_quality_reports():
+    try:
+        for symbol in INSTRUMENTS:
+            # Saved-data seeding must never clear a quarantined provider report.
+            if 'quality:'+symbol in state_raw():continue
+            _local.symbol=symbol;con=db();bars=list(reversed([dict(r) for r in con.execute("SELECT bar_time AS datetime,open,high,low,close,volume FROM candles WHERE symbol=? AND interval='4h' ORDER BY bar_time DESC LIMIT 100",(symbol,))]));con.close()
+            if bars:check_data_quality(bars)
+    finally:_local.symbol='SPY'
+
+@atomic
+def register_proposal(candidate):
+    proposal=dict(candidate,proposal_id=str(uuid.uuid4()),symbol=current_symbol(),side='LONG',contract_version=CONTRACT_VERSION)
+    hashed=contract_digest(proposal);con=db();con.execute('INSERT INTO proposals VALUES (?,?,?,?,?)',(proposal['proposal_id'],utcnow(),current_symbol(),json.dumps(proposal),hashed));con.commit();con.close()
+    emit('Analyst','Risk & Compliance','PROPOSAL_REGISTERED','PENDING','Immutable swing proposal registered.',{'proposal_id':proposal['proposal_id'],'digest':hashed})
+    return proposal
+
+@atomic
+def record_risk_decision(proposal_id,candidate,phase):
+    report=risk_assessment(candidate);rid=str(uuid.uuid4())
+    body={'version':CONTRACT_VERSION,'id':rid,'proposal_id':proposal_id,'phase':phase,'symbol':current_symbol(),'side':'LONG','proposal_digest':contract_digest({k:v for k,v in candidate.items() if k!='approval_id'}),'max_quantity':candidate['quantity'],'max_cash':RULES['max_position'],'max_planned_loss':RULES['max_planned_loss'],'stop':candidate['stop'],'expires_at':(datetime.fromisoformat(candidate['queued_at'])+timedelta(days=7)).isoformat()}
+    body['decision']='APPROVE' if report['approved'] else 'REJECT'
+    payload=dict(report,id=rid,body=body,signature=contract_sign(body,CONTROL_TOKEN),risk_rules=dict(RULES),exposure_limits=dict(EXPOSURE_LIMITS),account=get_state(),daily_realized=today_realized(),open_positions=open_positions(),knowledge=knowledge_for_agent('Risk & Compliance',True))
+    con=db();con.execute('INSERT INTO risk_decisions VALUES (?,?,?,?,?,?)',(rid,proposal_id,utcnow(),phase,'APPROVE' if report['approved'] else 'REJECT',json.dumps(payload)));con.commit();con.close()
+    emit('Risk & Compliance','Logger','RISK_DECISION','APPROVED' if report['approved'] else 'BLOCKED',report['reason'],{'id':rid,'proposal_id':proposal_id,'phase':phase,'checks':report['checks']})
+    return payload
+
+def validate_approval(candidate,bar):
+    con=db()
+    approval=con.execute('SELECT * FROM risk_decisions WHERE id=?',(candidate.get('approval_id',''),)).fetchone()
+    proposal=con.execute('SELECT * FROM proposals WHERE id=?',(candidate.get('proposal_id',''),)).fetchone()
+    consumed=con.execute('SELECT 1 FROM decision_consumptions WHERE approval_id=?',(candidate.get('approval_id',''),)).fetchone();con.close()
+    if not approval or not proposal:return False,'Durable queue approval and proposal are required.'
+    if consumed:return False,'Approval has already been consumed.'
+    try:
+        payload=json.loads(approval['payload']);body=payload['body'];clean={k:v for k,v in candidate.items() if k!='approval_id'}
+        if approval['phase']!='QUEUE' or approval['decision']!='APPROVE' or approval['proposal_id']!=proposal['id']:return False,'Approval phase or proposal binding is invalid.'
+        if not contract_verify(body,payload['signature'],CONTROL_TOKEN):return False,'Approval signature is invalid.'
+        if body['decision']!='APPROVE' or body['phase']!='QUEUE' or body['id']!=approval['id'] or body['proposal_id']!=proposal['id']:return False,'Signed approval identity or decision mismatch.'
+        if body['version']!=CONTRACT_VERSION or body['symbol']!=current_symbol() or body['side']!='LONG' or candidate.get('symbol')!=current_symbol():return False,'Approval instrument, side or version mismatch.'
+        if contract_digest(clean)!=proposal['digest'] or body['proposal_digest']!=proposal['digest']:return False,'Proposal changed after approval.'
+        opening=datetime.fromisoformat(bar['datetime']).replace(tzinfo=ZoneInfo('America/New_York')).astimezone(timezone.utc)
+        if opening<datetime.fromisoformat(candidate['queued_at']) or opening>datetime.fromisoformat(body['expires_at']):return False,'Opening is before the decision or beyond approval expiry.'
+        signal=datetime.fromisoformat(candidate['signal_time']).replace(tzinfo=ZoneInfo('America/New_York')).astimezone(timezone.utc)
+        if opening<signal+timedelta(hours=4,minutes=15):return False,'Opening is not after the completed signal candle.'
+        if not candidate.get('quality',{}).get('entry_allowed'):return False,'Proposal lacked a passing data-quality gate.'
+        raw=state_raw();quality=json.loads(raw.get('quality:'+current_symbol(),'{}'))
+        if not quality.get('entry_allowed'):return False,'Current data-quality gate blocks entries.'
+        if quality.get('last_bar')!=bar['datetime']:return False,'Fill candle differs from current validated data.'
+        con=db();stored=con.execute("SELECT * FROM candles WHERE symbol=? AND interval='4h' AND bar_time=?",(current_symbol(),bar['datetime'])).fetchone();con.close()
+        if not stored or any(not math.isclose(float(stored[k]),float(bar[k]),rel_tol=1e-8,abs_tol=1e-8) for k in ('open','high','low','close')):return False,'Fill candle does not match stored validated prices.'
+        if 'fill_open' not in bar or float(bar['fill_open'])!=float(bar['open']):return False,'Only the validated later candle opening can execute.'
+        if candidate['quantity']>body['max_quantity'] or candidate['stop']!=body['stop']:return False,'Approval size or stop mismatch.'
+        return True,'Bound, unexpired, single-use approval verified.'
+    except (ValueError,TypeError,KeyError,OverflowError):return False,'Malformed decision contract.'
+
+@atomic
+def cancel_legacy_entries():
+    con=db();rows=con.execute("SELECT * FROM pending_orders WHERE side='buy'").fetchall()
+    for r in rows:
+        payload=json.loads(r['payload'])
+        if payload.get('contract_version')!=CONTRACT_VERSION or not payload.get('approval_id'):
+            emit('Supervisor','Paper Trader','LEGACY_ORDER_CANCELLED','BLOCKED','Unsigned legacy entry cancelled during contract migration; original payload retained in audit.',dict(r))
+            con.execute("DELETE FROM pending_orders WHERE symbol=? AND side='buy'",(r['symbol'],))
+    con.commit();con.close()
+
+@app.get('/decision-evidence')
+def decision_evidence(limit:int=20,offset:int=0):
+    limit=min(max(limit,1),50);offset=max(offset,0);con=db()
+    rows=con.execute('SELECT * FROM proposals ORDER BY ts DESC LIMIT ? OFFSET ?',(limit,offset)).fetchall();result=[]
+    for r in rows:
+        decisions=[dict(d,payload=json.loads(d['payload'])) for d in con.execute('SELECT * FROM risk_decisions WHERE proposal_id=? ORDER BY ts',(r['id'],))]
+        fills=[dict(f) for f in con.execute('SELECT * FROM decision_consumptions WHERE approval_id IN (SELECT id FROM risk_decisions WHERE proposal_id=?)',(r['id'],))]
+        result.append(dict(r,payload=json.loads(r['payload']),decisions=decisions,fills=fills))
+    total=con.execute('SELECT COUNT(*) FROM proposals').fetchone()[0];con.close()
+    return {'version':CONTRACT_VERSION,'proposals':result,'total':total,'quality':[json.loads(v) for k,v in state_raw().items() if k.startswith('quality:')],'limitations':'HMAC and immutable-by-application records inside one process; no independent permission boundary or tamper-proof database. No live spreads/news/corporate-action source.'}
+
+@app.get('/data-quality/{symbol}/history')
+def quality_history(symbol:str,limit:int=10):
+    if symbol not in INSTRUMENTS:raise HTTPException(404,'Unknown instrument.')
+    con=db();rows=con.execute('SELECT ts,payload FROM quality_reports WHERE symbol=? ORDER BY ts DESC LIMIT ?',(symbol,min(max(limit,1),20))).fetchall();con.close()
+    return [dict(json.loads(r['payload']),recorded_at=r['ts']) for r in rows]
+
+class RevisionReview(BaseModel):
+    expected_hash:str=Field(min_length=20,max_length=64)
+    reason:str=Field(min_length=10,max_length=1000)
+    held_position_review:bool=False
+
+@app.get('/data-quality/{symbol}/revision-preview')
+def revision_preview(symbol:str):
+    if symbol not in INSTRUMENTS or '/' in symbol:raise HTTPException(404,'Unknown US paper instrument.')
+    report=json.loads(state_raw().get('quality:'+symbol,'{}'));con=db();row=con.execute('SELECT payload FROM quality_reports WHERE symbol=? AND context_hash=?',(symbol,report.get('context_hash',''))).fetchone()
+    if not row:con.close();raise HTTPException(404,'Quality evidence unavailable.')
+    payload=json.loads(row['payload']);times={i['detail'] for i in report.get('issues',[]) if i['code']=='HISTORICAL_REVISION'};changes=[]
+    for b in payload['input_bars']:
+        if b['datetime'] in times:
+            prior=con.execute("SELECT bar_time,open,high,low,close FROM candles WHERE symbol=? AND interval='4h' AND bar_time=?",(symbol,b['datetime'])).fetchone()
+            changes.append({'saved':dict(prior) if prior else None,'provider':b})
+    active=con.execute("SELECT id,entry_time,stop FROM positions WHERE symbol=? AND status='OPEN'",(symbol,)).fetchone()
+    con.close();return {'symbol':symbol,'quality_hash':report.get('context_hash'),'changes':changes,'active_position':dict(active) if active else None,'warning':'Ordinary review refuses active positions/orders. Explicit held-position incident review additionally checks small changes and unchanged historical stop/MA exit predicates; any freeze remains.'}
+
+@app.post('/data-quality/{symbol}/accept-revision')
+@atomic
+def accept_candle_revision(symbol:str,review:RevisionReview,x_control_token:str|None=Header(default=None)):
+    require_control(x_control_token)
+    if symbol not in INSTRUMENTS or '/' in symbol:raise HTTPException(404,'Unknown US paper instrument.')
+    report=json.loads(state_raw().get('quality:'+symbol,'{}'))
+    if report.get('context_hash')!=review.expected_hash:raise HTTPException(409,'Quality evidence changed; reload before reviewing.')
+    if not report.get('quarantined') or not report.get('issues') or any(i['code']!='HISTORICAL_REVISION' for i in report['issues']):raise HTTPException(409,'Only an isolated historical OHLC revision can use this review path.')
+    con=db()
+    active=con.execute("SELECT * FROM positions WHERE symbol=? AND status='OPEN'",(symbol,)).fetchone()
+    if con.execute('SELECT 1 FROM pending_orders WHERE symbol=?',(symbol,)).fetchone():raise HTTPException(409,'Pending orders require separate investigation; correction refused.')
+    if active and not review.held_position_review:raise HTTPException(409,'Active position requires explicit held-position incident review; ordinary correction refused.')
+    stored=con.execute('SELECT payload FROM quality_reports WHERE symbol=? AND context_hash=?',(symbol,review.expected_hash)).fetchone()
+    if not stored:raise HTTPException(409,'Full quality evidence unavailable.')
+    bars=json.loads(stored['payload'])['input_bars'];valid=assess_quality(symbol,bars,saved={})
+    if not valid['entry_allowed'] or valid['quarantined']:raise HTTPException(409,'Revised batch fails current session/freshness validation.')
+    times={i['detail'] for i in report['issues']};changes=[]
+    # Validate the complete correction before any trusted-price mutation.
+    for b in bars:
+        if b['datetime'] not in times:continue
+        prior=con.execute("SELECT * FROM candles WHERE symbol=? AND interval='4h' AND bar_time=?",(symbol,b['datetime'])).fetchone()
+        if not prior:raise HTTPException(409,'Original trusted candle unavailable.')
+        changes.append({'original':dict(prior),'accepted':b})
+    if len(changes)!=len(times):raise HTTPException(409,'Revision evidence is incomplete.')
+    invariants=None
+    if active:
+        if any(abs(ch['accepted'][k]/ch['original'][k]-1)>.001 for ch in changes for k in ('open','high','low','close')):raise HTTPException(409,'Held-position correction exceeds the 0.1% incident-review bound.')
+        original=[dict(r) for r in con.execute("SELECT * FROM candles WHERE symbol=? AND interval='4h' ORDER BY bar_time",(symbol,))]
+        replacements={ch['accepted']['datetime']:ch['accepted'] for ch in changes};revised=[dict(b,**{k:replacements[b['bar_time']][k] for k in ('open','high','low','close')}) if b['bar_time'] in replacements else b for b in original]
+        entry=datetime.fromisoformat(active['entry_time']);checkpoint=datetime.fromisoformat(state_raw().get(checkpoint_key(symbol),original[-1]['bar_time']));checked=0
+        for i,(old,new) in enumerate(zip(original,revised)):
+            t=datetime.fromisoformat(old['bar_time'])
+            if t<entry or t>checkpoint:continue
+            if i<19:raise HTTPException(409,'Insufficient saved context for held-position exit comparison.')
+            old_ma=sum(b['close'] for b in original[i-19:i+1])/20;new_ma=sum(b['close'] for b in revised[i-19:i+1])/20
+            old_exit=(old['low']<=active['stop'],old['open']<active['stop'],old['close']<old_ma);new_exit=(new['low']<=active['stop'],new['open']<active['stop'],new['close']<new_ma)
+            if old_exit!=new_exit:raise HTTPException(409,'Correction changes a historical stop/gap/MA exit predicate; separate incident resolution required.')
+            checked+=1
+        if not checked:raise HTTPException(409,'No processed held-position bars available for comparison.')
+        invariants={'trade_id':active['id'],'processed_bars_compared':checked,'stop_gap_ma_exit_predicates_unchanged':True,'max_relative_correction':.001,'positions_and_original_trade_contexts_unchanged':True}
+    for ch in changes:
+        b=ch['accepted'];con.execute("UPDATE candles SET open=?,high=?,low=?,close=? WHERE symbol=? AND interval='4h' AND bar_time=?",(b['open'],b['high'],b['low'],b['close'],symbol,b['datetime']))
+    rid=str(uuid.uuid4());con.execute('INSERT INTO candle_revision_reviews VALUES (?,?,?,?,?,?)',(rid,symbol,utcnow(),review.expected_hash,review.reason,json.dumps(changes)))
+    previous=current_symbol()
+    try:_local.symbol=symbol;new_report=check_data_quality(bars)
+    finally:_local.symbol=previous
+    if new_report['quarantined']:raise HTTPException(409,'Other saved-price inconsistencies remain; correction rolled back.')
+    emit('Supervisor','Logger','CANDLE_REVISION_ACCEPTED','REVIEW','Operator-reviewed OHLC correction accepted; original evidence retained. Freeze is not automatically cleared.',{'id':rid,'symbol':symbol,'quality_hash':review.expected_hash,'reason':review.reason,'changes':changes,'held_position_review':invariants})
+    con.commit();con.close()
+    return {'id':rid,'quality':new_report,'held_position_review':invariants,'frozen':get_state()['frozen'],'message':'Correction recorded; a deliberate manual resume is still required if the desk is frozen.'}
+
+@app.get('/attribution')
+def attribution():
+    con=db();rows=[dict(r) for r in con.execute("SELECT p.*,c.payload FROM positions p LEFT JOIN trade_context c ON p.id=c.trade_id WHERE p.status='CLOSED'")];con.close();groups={}
+    for row in rows:
+        context=json.loads(row['payload']) if row['payload'] else {};tag=context.get('attribution',{});key=(context.get('strategy','UNKNOWN'),row['symbol'],tag.get('entry_regime','UNKNOWN'),row.get('exit_reason') or 'UNKNOWN')
+        groups.setdefault(key,[]).append(row)
+    result=[]
+    for key,rs in groups.items():
+        eligible=[r for r in rs if r['planned_loss']>0 and r['realized_pnl'] is not None];pnl=sum(r['realized_pnl'] or 0 for r in rs)
+        result.append({'strategy':key[0],'symbol':key[1],'entry_regime':key[2],'exit_reason':key[3],'trades':len(rs),'net_pnl':pnl,'expectancy_dollars':pnl/len(rs),'eligible_r_trades':len(eligible),'mean_r':sum(r['realized_pnl']/r['planned_loss'] for r in eligible)/len(eligible) if eligible else None,'estimated_costs':sum(r['estimated_costs'] for r in rs),'legacy_cost_records':sum(r['entry_fee']==0 for r in rs)})
+    return {'closed_trades':len(rows),'groups':result,'edge_validated':False,'limitations':'Observed associations, not causal attribution. Legacy missing regime stays UNKNOWN. No calibrated signal score, MAE/MFE or regime strategy routing.'}
+
+@app.get('/controls',response_class=HTMLResponse)
+def control_evidence_page():
+    from pathlib import Path
+    return HTMLResponse(Path(__file__).with_name('controls.html').read_text(encoding='utf-8'))
