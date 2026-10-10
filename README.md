@@ -1,102 +1,42 @@
-# Trading Control Room — Paper Operations
+# Trading Desk — autonomous paper operations
 
-**[Open the dashboard](https://tcr.161-33-69-185.sslip.io/)** · **[Start Here: links and login help](START_HERE.md)**
+**[Open the dashboard](https://tcr.161-33-69-185.sslip.io/)** · **[Research Lab & Knowledge](https://tcr.161-33-69-185.sslip.io/research)** · **[Login help](START_HERE.md)**
 
-For the prepared Oracle Cloud deployment, follow **ORACLE_DEPLOYMENT.md** and
-use **compose.oracle.yml**. The original Docker instructions below describe local
-operation only. Dashboard authentication and a control token are now mandatory.
-The Oracle deployment is operational in paper mode; see the deployment guide for
-verified behavior and remaining limitations.
+A private swing-trading control room on the existing Oracle Cloud VM. Seven named software roles connect free market data, a fixed strategy, deterministic risk checks, simulated execution, audit and performance review. **Paper only. No broker connectivity or real-money trading.**
 
-Project repository: https://github.com/pcgenie575/Trading-desk
+## Understand how it works
 
-The dashboard includes a swing-focused paper journal, R-multiple analytics,
-holding-period/weekday heat map, strategy playbook, risk-scenario calculator and
-saved trade reviews. See **[Swing journal guide](SWING_JOURNAL.md)** for definitions
-and export/report instructions.
+Read the [documentation index](docs/README.md) for the glossary, evidence and recommended reading order.
 
-This is the consolidated autonomous **paper-trading** release.
+1. [Product Requirements](docs/product-requirements.md) — what the desk does, who uses it and its boundaries.
+2. [App Flow](docs/app-flow.md) — the agents, operator journeys, trade lifecycle and failure handling.
+3. [Technical Requirements](docs/technical-requirements.md) — hosting, authentication, modules, risk/cost model and recovery.
+4. [Backend Schema](docs/backend-schema.md) — stored records, ledger equations, lessons and research history.
+5. [Design Brief](docs/design-brief.md) — dashboard hierarchy, agent links, journal/calendar and accessibility.
+6. [Implementation Plan](docs/implementation-plan.md) — completed work, remaining verification and evidence-led next steps.
 
-## Operational flow
-Market Data → Analyst → Risk & Compliance → Paper Trader → Logger
-                                  ↑
-                              Supervisor
-Performance Reviewer reads completed results and reports to Supervisor.
+## Current operating scope
 
-## What is autonomous
-- Rotate a free-data watchlist of 16 US shares/ETFs and observe BTC/USD and ETH/USD
-- Fetch completed 4-hour candles, prioritizing open positions every 15 minutes
-- Persist a conservative 720-request daily cap, with scanner requests capped at 600
-- Deduplicate completed candles
-- Run the fixed Trend Breakout v1 Analyst
-- Apply deterministic risk checks
-- Open a simulated long position when approved
-- Monitor protective-stop and 20-SMA exit rules
-- Close simulated positions automatically
-- Maintain cash, equity, realized/unrealized P/L
-- Enforce $75 daily realized-loss stop
-- Enforce $250 peak-to-equity drawdown freeze
-- Persist positions, candles, messages and reviews in SQLite
-- Recover persistent state after process/container restart
-- Maintain the visible inter-bot audit feed
+The desk scans a bounded list of 16 USD US shares/ETFs and observes BTC/USD and ETH/USD without executing crypto. It does not cover everything Webull Australia offers. Four-hour data is delayed; five-minute scheduler checks do not turn it into real-time trading. Per-symbol checkpoints and request budgets persist across restarts.
 
-## Fixed paper limits
-- Starting balance: $5,000
-- US watchlist only for paper execution; crypto is observation only
-- Long only
-- No leverage
-- Up to three positions, one per symbol
-- Maximum aggregate entry exposure: $1,500; planned loss: $75
-- Max position: $500
-- Max planned loss: $25
-- Daily realized-loss freeze: $75
-- Drawdown freeze: $250
+The active Analyst uses Trend Breakout v1: completed close above the 50-bar SMA and prior 10-bar high, with a 5% reference stop and 20-bar SMA exit. Approved buys and moving-average exits queue for a later eligible candle opening after the recorded decision. Stops account for adverse opening gaps. Estimated spread, slippage, order fees and an FX allowance reduce cash and results. Costs are assumptions, not broker tariffs; the account remains USD.
 
-## Strategy
-- Trend filter: completed close > 50-bar SMA
-- Candidate: completed close > prior 10-bar high
-- Exit: 5% protective stop OR completed close < 20-bar SMA
-- 2 bps simulated slippage each side
+Risk gates enforce $500 all-in position cost/$25 planned loss, three open positions, $1,500 aggregate cost/$75 planned loss, a $75 daily realised-loss stop and $250 drawdown freeze. Additional sector, US-equity group and correlation limits restrict overlapping exposure. These are entry/operating gates, not guarantees against gap losses.
 
-## Security
-Set `TCR_CONTROL_TOKEN`. Mutating controls (manual cycle, freeze, resume, backtest) require it.
-For internet deployment, put the service behind HTTPS and provider/firewall access controls.
+The dashboard has clickable agents, audit-driven links, coverage, swing analytics, a weekly trade calendar, saved plans/reviews, playbook and scenario calculator. The lab holds revisioned lessons and fixed eight-variant comparisons with passive baselines, weekly decision reports and a reserved future-data test. Approved notes are reference context; they do not train a model or change rules. Pullback and trailing/time/partial exits remain research only.
 
-## Run with Docker
-1. Copy `.env.example` to `.env`
-2. Set `TWELVE_DATA_API_KEY`
-3. Set a long random `TCR_CONTROL_TOKEN`
-4. Run:
+## Deployment, access and evidence
 
-```bash
-docker compose up -d --build
-```
+The existing Oracle deployment uses Docker Compose with Caddy HTTPS and persistent SQLite. All private pages/APIs require the dashboard login; explicit write controls also use a separate token. The minimal health endpoint is public. Credentials stay outside GitHub.
 
-Open `http://SERVER_IP:8000`.
+Daily consistent backups retain 14 VM copies; automatic encrypted off-server backups remain unconfigured. Read [technical requirements](docs/technical-requirements.md) before maintenance. [Earlier Oracle notes](ORACLE_DEPLOYMENT.md) contain dated setup information and must not override the current host/configuration. Do not start a second application process against the operational ledger.
 
-## Run without Docker
-```bash
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app:app --host 0.0.0.0 --port 8000
-```
+Documentation baseline: source [48149bd](https://github.com/pcgenie575/Trading-desk/tree/48149bd7ba5f41f4d2472c97b0db81cf87bf914a), recorded deployment verification on 10 October 2026 Perth time. That check passed 20 backend tests, authentication, scheduler, restart persistence and cash reconciliation. Browser visual/accessibility verification remained incomplete. Health evidence is dated, not a live guarantee or proof of profitability.
 
-## Validation before considering any live-money project
-Do not judge the system from a handful of trades. Leave it in paper operation and review:
-- data-feed reliability and missing/stale bars
-- duplicate prevention
-- restart/recovery behavior
-- every Risk rejection
-- realized and unrealized P/L accuracy
-- daily/drawdown circuit breakers
-- trade count and win/loss distribution
-- maximum drawdown
-- backtest vs forward-paper performance
-- whether the strategy's apparent edge survives realistic costs and different market regimes
+The first recorded SPY historical comparison used 499 free candles: all eight later-period variants lost money after modeled costs and underperformed the passive baseline. The forward plan was collecting, and there were no closed operational paper trades at that check. Use current dashboard records to assess present state.
 
-## Deliberate boundary
-There is **no broker adapter, broker credential storage, or live-order endpoint** in this release.
-That is intentional. A future live-money version should be a separately reviewed deployment after
-forward-paper evidence, security review, failure testing, and explicit approval.
+## Development validation
+
+Install `requirements.txt` and `httpx` in a disposable Python environment, then run `python -m unittest discover -s tests -v`. Tests use isolated ledgers. Do not supply production keys or point tests at the operating database. Framework pins and recorded tests do not replace dependency/security review, browser acceptance or restore rehearsals.
+
+See [Start Here](START_HERE.md), [Research Lab](RESEARCH_LAB.md), [Swing Journal](SWING_JOURNAL.md), [Market Scope](MARKET_EXPANSION.md) and [Agent Learning](AGENT_LEARNING.md) for supplemental guidance. Keep runtime secrets, ledger/backups and private exports out of source control.

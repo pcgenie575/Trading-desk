@@ -59,3 +59,7 @@ The server uses an ephemeral public IP. If Oracle changes it, the dashboard addr
 [Open the knowledge base](https://tcr.161-33-69-185.sslip.io/research) to save lessons, research ideas and experiment evidence. See [RESEARCH_LAB.md](RESEARCH_LAB.md) for approval, agent assignment and revision history.
 
 The Research Lab now includes fixed strategy/exit comparisons, passive benchmarks and weekly decision reports. New paper orders use queued later-candle fills and estimated costs; sector and correlation checks restrict overlapping exposure. See RESEARCH_LAB.md for assumptions and limits.
+
+## Understand the whole Trading Desk
+
+Start with the [six-document guide and glossary](docs/README.md). It covers Product Requirements, App Flow, Technical Requirements, Backend Schema, Design Brief and Implementation Plan, with dated evidence and a distinction between deployed features, research and proposed work.

@@ -1,0 +1,77 @@
+# Trading Desk Backend Schema
+
+Version 1.0 | 10 October 2026 | Owner: Trading Desk
+
+Baseline: [source commit 48149bd](https://github.com/pcgenie575/Trading-desk/tree/48149bd7ba5f41f4d2472c97b0db81cf87bf914a), checked against the retained source. Deployment evidence is the verification recorded on 10 October 2026 Perth time. This documentation update does not change trading rules or certify today’s live health. “Proposed” items require implementation and acceptance.
+
+## Status and persistence
+
+This describes the implemented SQLite database, not a proposed replacement. The host file is `/opt/trading-control-room/data/control_room.db`, mounted as `/data/control_room.db` in the container. Startup creates missing tables and adds recognised columns. It preserves existing records but does not use a versioned migration table. A migration ledger and formal rollback rehearsals are proposed maintenance improvements.
+
+Most identifiers are UUID text. System/audit/update timestamps are UTC ISO strings. Candle and reconstructed trade execution times are naive New York timestamps. Daily loss bookkeeping uses the current New York processing date; it can differ from a recovered historical candle’s execution date. Weekly reports select closed trades by recorded exit timestamp. The frontend interprets New York dates with timezone/DST rules before showing Perth calendar dates.
+
+## Logical relationships
+
+```mermaid
+erDiagram
+    POSITIONS ||--o| TRADE_CONTEXT : snapshots
+    POSITIONS ||--o| TRADE_REVIEWS : assessed
+    POSITIONS ||--o{ MESSAGES : referenced
+    KNOWLEDGE_ENTRIES ||--|{ KNOWLEDGE_HISTORY : versions
+    FORWARD_PLANS ||--o| RESEARCH_RUNS : produces
+```
+
+These are application relationships. The current SQL does not declare/enforce foreign-key constraints for them. One-open-position-per-symbol is an application gate, not a unique database constraint. Do not assume database enforcement that the source does not provide.
+
+## Trading and operational tables
+
+| Table | Key | Fields and meaning |
+| --- | --- | --- |
+| positions | id TEXT PK | symbol, status OPEN/CLOSED, entry_time, entry_price, qty, stop, position_value, planned_loss, exit_time, exit_price, realised field `realized_pnl`, exit_reason, entry_fee, exit_fee, estimated_costs |
+| trade_context | trade_id TEXT PK | JSON payload: immutable original candidate, strategy config, risk rules, instrument, curriculum version, approved knowledge versions and entry execution/cost model |
+| trade_reviews | trade_id TEXT PK | updated_at, review_status draft/reviewed, followed_rules unknown/yes/partial/no, notes, rule_break tag |
+| pending_orders | symbol TEXT PK | side buy/sell, signal_time, JSON payload including queued_at; buys carry candidate, sells carry position ID/reason |
+| candles | symbol + interval + bar_time PK | open, high, low, close, volume; deduplicated saved four-hour data |
+| state | key TEXT PK | Serialised values: cash/equity/peak, freeze state/reason, per-symbol marks/checkpoints, scan cursor, cycle/fetch/coverage and request-budget counters |
+| daily_pnl | trade_date TEXT PK | Accumulated realised P/L for the New York processing day |
+| equity_history | ts TEXT PK | equity and peak observations; reports do not invent missing earlier history |
+| messages | id TEXT PK | ts, sender, recipient, type, status, reason, JSON data, optional trade_id; includes approved lesson-reference provenance |
+| reviews | id TEXT PK | ts, kind and JSON operational review payload |
+
+Quantity remains constant until a full-position exit in the active ledger. There is no live partial-fill/exit table. Partial exit legs exist only inside a research result’s JSON trade log.
+
+## Ledger equations
+
+For a new entry, buy fill price includes spread/slippage; entry_fee includes the order fee and FX allowance. `position_value = qty × entry_price + entry_fee` is the cash cost basis, not merely quoted notional. Cash decreases by that value. Planned loss includes the modeled stop-exit proceeds after exit costs; actual overnight gaps can lose more.
+
+Exit proceeds are `qty × exit_price − exit_fee`. Realised P/L is proceeds minus the stored entry cost basis. Cash increases by proceeds. `estimated_costs` also records embedded spread/slippage for reporting; do not subtract them a second time from P/L.
+
+Reconciliation without deposits/withdrawals:
+
+`cash = 5000 + sum(closed realised P/L) − sum(open position_value)`
+
+`equity = cash + sum(open qty × latest saved mark)`
+
+Unrealised P/L is marked position value minus entry cost basis; it does not precharge a hypothetical exit fee. Legacy cost columns default to zero when migrated. Their original entries are not retroactively rewritten. Missing trade_context remains unavailable rather than fabricated.
+
+## Knowledge tables and revisions
+
+knowledge_entries has id PK, version, updated_at, title, kind lesson/hypothesis/experiment, status draft/in_review/approved/rejected/archived, content, evidence, source_url, JSON agents and builtin flag. Five `book:` entries are seeded once and read-only. Custom entries use UUIDs. Title/content cannot be blank. Field limits are 160/6000 characters for title/content, 4000 for evidence, 800 for source URL and seven assigned roles. Approval requires evidence and a role; only approved lessons enter agent reference context. URLs accept HTTP(S), reject embedded credentials, and are not fetched by agents.
+
+knowledge_history uses entry_id + version as its primary key, with ts and a full record JSON snapshot. Updates require expected_version; stale revisions return 409. Saving entry, history and audit is transactional. Archiving removes future references while preserving history and captured trade context. The current total limit is 250 entries, including archived/installed entries; archiving does not release that capacity.
+
+## Research and weekly tables
+
+research_runs: id PK, ts, symbol, dataset_hash, protocol JSON, test_start, test_end, status, result payload JSON and exact dataset JSON. Protocol/data are saved before calculation. Statuses include RUNNING, COMPLETE, FAILED and INTERRUPTED. Results retain all eight variants, costs, trade legs, equity curves and benchmarks. Dataset fingerprint plus protocol identifies repeated requests in application logic; no SQL unique constraint enforces that pair. Run registration is serialised within the single application process. Manual batches have a 100-record cap; the automated forward path does not share that cap.
+
+forward_plans: id PK, symbol, registered_at, frozen protocol JSON, status and optional run_id. The versioned SPY plan waits for 120 future completed candles, uses 60 preceding warm-up candles, and records all variants once. Protocol mismatch changes a collecting plan to REVIEW_REQUIRED. Startup marks unfinished running plans interrupted; operator investigation is required instead of pretending they completed.
+
+weekly_reports: week PK, ts and JSON payload. The week key is the Monday date of the completed New York week. A report is saved once for the latest completed week; it is not automatically a historical backfill or continuously recalculated after later review edits. It stores sample/expectancy/cost/adherence/failure/drawdown evidence, decision and reasons. Unavailable values are null.
+
+## Transactions, growth and recovery
+
+Trading/knowledge operations use a process-wide reentrant lock and BEGIN IMMEDIATE with rollback on failure. Manual research calculation runs outside the lock after durable registration; results are committed afterwards. Forward research runs in the scheduler’s serialised cycle. This requires a single application process.
+
+The API caps audit reads at 1000 messages, research summaries at 20 per page and weekly reports at 52; these read limits do not delete stored history. Operational candles/audit/equity/history can keep growing. Summary responses omit large curves/trade logs; one-run exports retain them. No general retention purge, export-import restore workflow or encrypted off-server destination is implemented.
+
+Use the online SQLite backup API for consistent backups, validate integrity before restore, and stop the application before replacing its DB. Never commit real ledger/backups, credentials or private reviews to GitHub. See [technical requirements](technical-requirements.md) for access and recovery constraints.

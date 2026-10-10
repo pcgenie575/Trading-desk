@@ -1,0 +1,56 @@
+# Trading Desk Design Brief
+
+Version 1.0 | 10 October 2026 | Owner: Trading Desk
+
+Baseline: [source commit 48149bd](https://github.com/pcgenie575/Trading-desk/tree/48149bd7ba5f41f4d2472c97b0db81cf87bf914a), checked against the retained source. Deployment evidence is the verification recorded on 10 October 2026 Perth time. This documentation update does not change trading rules or certify today’s live health. “Proposed” items require implementation and acceptance.
+
+## Design objective
+
+Give the operator a calm, readable view of the complete paper desk, then allow focused inspection of each agent, trade and experiment. Visuals should explain evidence and relationships. They must not imply that animation, a book lesson, a high win rate or a positive backtest proves profitability.
+
+## Audience and tone
+
+Use plain Australian English for an owner who wants to operate and understand the desk without reading code. Explain paper status, date range, source, cost assumptions and missing evidence next to the relevant number. Keep engineering details in expandable plan/protocol views and documentation. Labels should describe actual actions: “Save record”, “Run and record comparison”, “Freeze” and “View revision history”.
+
+## Existing visual direction
+
+| Element | Current dashboard direction |
+| --- | --- |
+| Background | Navy #080e18 with restrained gradients |
+| Panel | #111b2a; visible border #253449 |
+| Primary text | #eaf0fa |
+| Secondary text | #9badc3 |
+| Positive/accent | Mint #71e2c0 |
+| Negative | Soft red #ff9fa7 |
+| Typography | System sans-serif, clear headings, tabular numeric values |
+| Agent diagram | Seven role cards connected by SVG links |
+
+These are retained source tokens, not a claim of measured contrast compliance. The Research Lab uses the same navy/mint direction with a records list and editor.
+
+## Information hierarchy
+
+Dashboard: paper equity, available cash, unrealised P/L and desk state first; agent flow and selected-agent detail next; then coverage, journal/calendar, playbook/risk scenario, learning library and audit feed. A link to the separate lab stays easy to find.
+
+Research Lab: fixed comparisons and forward progress, weekly decision reports, then knowledge categories, search/filter, record list and editor. Installed lessons are clearly read-only. Custom notes and calculated experiment results have separate meanings and storage. Historical runs show development/later dates, costs, drawdown, invested time and passive comparison; full results and frozen data are exportable.
+
+Journal: show each position once, its open/closed state, saved plan and assessment. Earlier trades lacking context are labelled accordingly. Calendar colours reflect closed P/L on the exit date, not presumed profits while a position is held. Use the selected Perth/New York timezone consistently.
+
+## Interaction and motion
+
+Clicking an agent shows what it received/sent and its latest operating state. Links animate once for new audit events and stay still between events. Respect reduced-motion preferences by using highlights. Do not simulate constant activity to make idle markets look busy.
+
+Knowledge editing preserves unsaved input on save failure. Revision conflicts do not overwrite someone else’s change. Approval requires evidence and at least one assigned agent; only approved lessons are reference guidance. Avoid text suggesting that the software learned new trading rules merely because a note was approved.
+
+Research lists are paginated to suit the small VM. Summaries omit large curves/trade logs; full result exports fetch one run. Display empty states and unavailable metrics without replacing them with fictional data. No demo trades belong in the operational ledger.
+
+## Accessibility and responsive requirements
+
+Use labelled inputs, semantic buttons, visible keyboard focus, accessible status/error announcements and meaningful table headings. Profit/loss must include a sign or label in addition to colour. Agent selection must work without hover, and all diagrams need a text explanation. Provide horizontal scrolling for dense comparison tables/agent layouts while retaining readable mobile controls. Proposed acceptance includes keyboard-only use, reduced motion, zoom and narrow-screen checks.
+
+## Honest data presentation
+
+Always distinguish recorded paper P/L from hypothetical research P/L. Use sample counts alongside expectancy/adherence. Unreviewed trades are not “compliant”. A healthy process is not the same as a fresh feed. Show reused historical periods and future collection progress. Costs are estimates, not broker tariffs; the account is USD and the FX allowance is not an actual currency return.
+
+## Acceptance status
+
+Recorded JavaScript checks covered agent selection, event deduplication, escaped record text, research rows/benchmarks, unavailable weekly metrics, forward progress and revision protection. Browser visual/mobile/accessibility review was not completed because preview access was unavailable. Completing that review is proposed work; this brief does not claim visual or accessibility certification.
