@@ -122,7 +122,7 @@ def install(app,services):
             p=json.loads(x['protocol']);n=slots(p,'ORIGINAL')
             inventory.append({'id':x['id'],'kind':'ORIGINAL','status':x['status'],'version':p.get('version'),'registered_strategy_slots':n,'cost_method_calculations':None})
         for x in labs:
-            p=json.loads(x['protocol']);kind=x['kind'];version=p.get('version')
+            p=json.loads(x['protocol']);kind=x['kind'];version=p.get('version') or p.get('experiment',{}).get('version')
             n=slots(p,kind)
             calculations=(p.get('calculations') or n*len(p.get('scenarios',{}))*2 if n is not None else None) if kind=='COST' else None
             inventory.append({'id':x['id'],'kind':kind,'status':x['status'],'version':version,'registered_strategy_slots':n,'cost_method_calculations':calculations})

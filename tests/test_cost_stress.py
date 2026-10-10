@@ -22,3 +22,4 @@ class StressTests(unittest.TestCase):
         self.assertEqual(slots({'source_protocol':{'entries':[1,2],'exits':[1,2,3]}},'COST'),6)
         self.assertEqual(slots(PROTOCOL,'COST'),8)
         self.assertIsNone(slots({'version':'unrecognized'},'COST'))
+        self.assertEqual(slots({'experiment':{'strategy':{'trend':100}}},'ETF'),1)
