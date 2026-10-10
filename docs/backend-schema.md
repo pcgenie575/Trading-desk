@@ -79,3 +79,9 @@ Trading/knowledge operations use a process-wide reentrant lock and BEGIN IMMEDIA
 The API caps audit reads at 1000 messages, research summaries at 20 per page and weekly reports at 52; these read limits do not delete stored history. Operational candles/audit/equity/history can keep growing. Summary responses omit large curves/trade logs; one-run exports retain them. No general retention purge, export-import restore workflow or encrypted off-server destination is implemented.
 
 Use the online SQLite backup API for consistent backups, validate integrity before restore, and stop the application before replacing its DB. Never commit real ledger/backups, credentials or private reviews to GitHub. See [technical requirements](technical-requirements.md) for access and recovery constraints.
+
+## Specialty agent brains — 10 October 2026
+
+The six remaining agents now have role-specific diagnostics, approved assigned lessons and persistent evidence reports. [Open Agent Brains](https://tcr.161-33-69-185.sslip.io/brains). Read [the specialty guide](../AGENT_BRAINS.md) for tools, interpretation, history and limits. Validation: 31 backend tests and interface logic checks. These descriptive previews leave trading/risk/research rules unchanged.
+
+agent_reports adds role, version, context_hash, created_at and JSON payload; primary key role + version + context_hash. Startup and scheduler attempts persist immutable, deduplicated contexts. History reads default to 20 and cap at 50; no retention purge. The database now has 17 tables.

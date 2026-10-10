@@ -69,3 +69,7 @@ The Research Lab now includes fixed strategy/exit comparisons, passive benchmark
 ## Understand the whole Trading Desk
 
 Start with the [six-document guide and glossary](docs/README.md). It covers Product Requirements, App Flow, Technical Requirements, Backend Schema, Design Brief and Implementation Plan, with dated evidence and a distinction between deployed features, research and proposed work.
+
+## Specialty agent brains — 10 October 2026
+
+The six remaining agents now have role-specific diagnostics, approved assigned lessons and persistent evidence reports. [Open Agent Brains](https://tcr.161-33-69-185.sslip.io/brains). Read [the specialty guide](AGENT_BRAINS.md) for tools, interpretation, history and limits. Validation: 31 backend tests and interface logic checks. These descriptive previews leave trading/risk/research rules unchanged.

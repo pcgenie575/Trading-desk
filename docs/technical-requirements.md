@@ -78,3 +78,7 @@ SQLite is bind-mounted from host `data` to container `/data`; rebuilding the ima
 Daily backups use SQLite’s online backup API and retain 14 copies on the VM. A consistent copy was also downloaded locally in verification. Automatic encrypted off-server backups remain unconfigured. Stop the application before restoring a verified DB, preserve the old copy, then validate integrity, ledger and pending orders before resuming. Do not overwrite an active ledger.
 
 Recorded validation: 26 backend tests, JavaScript interaction checks, authenticated HTTPS, scheduler health, restart persistence, preserved entry history and cash reconciliation. Browser visual/accessibility checks remain incomplete. Run tests against disposable databases only. Development dependencies include httpx for API tests; secrets are unnecessary for synthetic fixtures. Unbounded operational history, database growth, restore drills and VM resource trends need continued review; current code has no versioned migration ledger or general API rate-limit layer.
+
+## Specialty agent brains — 10 October 2026
+
+The six remaining agents now have role-specific diagnostics, approved assigned lessons and persistent evidence reports. [Open Agent Brains](https://tcr.161-33-69-185.sslip.io/brains). Read [the specialty guide](../AGENT_BRAINS.md) for tools, interpretation, history and limits. Validation: 31 backend tests and interface logic checks. These descriptive previews leave trading/risk/research rules unchanged.

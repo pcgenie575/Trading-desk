@@ -51,3 +51,7 @@ The Analyst Brain page adds descriptive trend, market, volatility/momentum, rela
 The baseline recorded 26 passing backend tests, UI logic checks and authenticated deployment/restart/ledger verification. Process health does not establish freshness or profitability. Before any strategy promotion, require an explicit versioned change, reserved-period evidence, realistic execution review and a tested rollback. No promotion or real-money path is authorised by these documents.
 
 Proposed priorities are an encrypted automatic off-server backup with restore rehearsal, browser/mobile/accessibility review, and evidence-led improvements after the forward sample. Continue within free-service constraints. See [implementation plan](implementation-plan.md).
+
+## Specialty agent brains — 10 October 2026
+
+The six remaining agents now have role-specific diagnostics, approved assigned lessons and persistent evidence reports. [Open Agent Brains](https://tcr.161-33-69-185.sslip.io/brains). Read [the specialty guide](../AGENT_BRAINS.md) for tools, interpretation, history and limits. Validation: 31 backend tests and interface logic checks. These descriptive previews leave trading/risk/research rules unchanged.

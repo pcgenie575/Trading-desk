@@ -5,6 +5,7 @@ import sqlite3, uuid, json, threading, os, math, secrets, base64
 from functools import wraps
 from dataclasses import asdict
 from analyst_tools import analyse, VERSION as ANALYST_VERSION, PARAMETERS as ANALYST_PARAMETERS
+from specialty_brains import build as build_specialty_brains, VERSION as SPECIALTY_VERSION, SPECIALTIES
 from execution import COSTS, fill, sized_entry
 from exposure import check as exposure_check, LIMITS as EXPOSURE_LIMITS
 from research_engine import compare, validate_bars, fingerprint, PROTOCOL
@@ -120,6 +121,7 @@ def init_db():
       rule_break TEXT NOT NULL DEFAULT 'none'
     );
     CREATE TABLE IF NOT EXISTS analyst_reports(symbol TEXT,bar_time TEXT,version TEXT,context_hash TEXT,created_at TEXT,payload TEXT,PRIMARY KEY(symbol,bar_time,version,context_hash));
+    CREATE TABLE IF NOT EXISTS agent_reports(role TEXT,version TEXT,context_hash TEXT,created_at TEXT,payload TEXT,PRIMARY KEY(role,version,context_hash));
     CREATE TABLE IF NOT EXISTS pending_orders(symbol TEXT PRIMARY KEY,side TEXT,signal_time TEXT,payload TEXT);
     CREATE TABLE IF NOT EXISTS research_runs(id TEXT PRIMARY KEY,ts TEXT,symbol TEXT,dataset_hash TEXT,protocol TEXT,test_start TEXT,test_end TEXT,status TEXT,payload TEXT,dataset TEXT);
     CREATE TABLE IF NOT EXISTS forward_plans(id TEXT PRIMARY KEY,symbol TEXT,registered_at TEXT,protocol TEXT,status TEXT,run_id TEXT);
@@ -501,6 +503,11 @@ def scheduler_loop():
         except Exception as e:
             try:freeze_system('Unexpected scheduler failure: '+type(e).__name__+'; operator review required.')
             except Exception:pass
+        try:save_specialty_reports()
+        except Exception:
+            # Advisory diagnostics cannot interrupt the operational scheduler.
+            try:emit('Logger','Supervisor','BRAIN_REPORT_ERROR','REVIEW','Specialty snapshot failed; operational rules remain active.')
+            except Exception:pass
         _scheduler_stop.wait(POLL_SECONDS)
 
 def start_scheduler():
@@ -525,6 +532,7 @@ def startup():
     seed_analyst_reports()
     register_forward_plan()
     maybe_weekly_report()
+    save_specialty_reports()
     training=curriculum()
     if not training['self_check']['passed']:raise RuntimeError('Curriculum self-check failed.')
     emit('Supervisor','ALL','CURRICULUM_LOADED','ACTIVE','Book-informed rule curriculum loaded.',
@@ -929,3 +937,40 @@ def analyst_analysis_history(symbol: str,limit:int=20):
 def analyst_page():
     from pathlib import Path
     return HTMLResponse(Path(__file__).with_name('analyst.html').read_text(encoding='utf-8'))
+
+def specialty_reports():
+    with _cycle_lock:
+        con=db()
+        ps=[dict(r) for r in con.execute('SELECT p.*,r.review_status,r.followed_rules FROM positions p LEFT JOIN trade_reviews r ON p.id=r.trade_id')]
+        context={'positions':ps,'state':get_state(),'rules':RULES,'coverage':coverage(),'daily_pnl':today_realized(),
+          'pending':[dict(r) for r in con.execute('SELECT * FROM pending_orders')],
+          'messages':[dict(r) for r in con.execute('SELECT ts,sender,recipient,type,status,reason FROM messages ORDER BY ts DESC LIMIT 1000')],
+          'missing_context':con.execute('SELECT COUNT(*) FROM positions p LEFT JOIN trade_context t ON p.id=t.trade_id WHERE t.trade_id IS NULL').fetchone()[0],
+          'audit_count':con.execute('SELECT COUNT(*) FROM messages').fetchone()[0],
+          'research_count':con.execute('SELECT COUNT(*) FROM research_runs').fetchone()[0],
+          'weekly':[dict(week=r['week'],payload=json.loads(r['payload'])) for r in con.execute('SELECT week,payload FROM weekly_reports ORDER BY week DESC LIMIT 4')],
+          'scheduler':bool(_scheduler_thread and _scheduler_thread.is_alive()),'last_success':state_raw().get('last_success','')}
+        con.close()
+        return build_specialty_brains(context,{role:knowledge_for_agent(role,True) for role in SPECIALTIES})
+
+@atomic
+def save_specialty_reports():
+    reports=specialty_reports();con=db()
+    for report in reports:
+        con.execute('INSERT OR IGNORE INTO agent_reports VALUES (?,?,?,?,?)',(report['role'],report['version'],report['context_hash'],utcnow(),json.dumps(report)))
+    con.commit();con.close()
+
+@app.get('/agent-brains')
+def agent_brains():
+    return {'version':SPECIALTY_VERSION,'reports':specialty_reports(),'extra_provider_requests':0,'snapshot_policy':'Startup and completed scheduler attempts; read-only previews never save snapshots.'}
+
+@app.get('/agent-brains/{role}/history')
+def agent_brain_history(role:str,limit:int=20):
+    if role not in SPECIALTIES:raise HTTPException(404,'Unknown specialty role; Analyst uses its separate history.')
+    con=db();rows=con.execute('SELECT created_at,payload FROM agent_reports WHERE role=? ORDER BY created_at DESC LIMIT ?',(role,min(max(limit,1),50))).fetchall();con.close()
+    return [dict(json.loads(r['payload']),recorded_at=r['created_at']) for r in rows]
+
+@app.get('/brains',response_class=HTMLResponse)
+def brains_page():
+    from pathlib import Path
+    return HTMLResponse(Path(__file__).with_name('brains.html').read_text(encoding='utf-8'))

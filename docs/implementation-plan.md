@@ -64,3 +64,7 @@ For rollback, preserve the database and current evidence; do not delete position
 ## Documentation maintenance
 
 Update these six documents when behaviour changes. Record the source commit, local checks, deployment evidence, research status and unresolved issues. Keep the root README and [documentation index](README.md) current. Source code is authoritative when an older feature note differs; never present historical health evidence as a live status guarantee.
+
+## Specialty agent brains — 10 October 2026
+
+The six remaining agents now have role-specific diagnostics, approved assigned lessons and persistent evidence reports. [Open Agent Brains](https://tcr.161-33-69-185.sslip.io/brains). Read [the specialty guide](../AGENT_BRAINS.md) for tools, interpretation, history and limits. Validation: 31 backend tests and interface logic checks. These descriptive previews leave trading/risk/research rules unchanged.

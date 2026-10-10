@@ -44,3 +44,7 @@ The first recorded SPY historical comparison used 499 free candles: all eight la
 Install `requirements.txt` and `httpx` in a disposable Python environment, then run `python -m unittest discover -s tests -v`. Tests use isolated ledgers. Do not supply production keys or point tests at the operating database. Framework pins and recorded tests do not replace dependency/security review, browser acceptance or restore rehearsals.
 
 See [Start Here](START_HERE.md), [Research Lab](RESEARCH_LAB.md), [Swing Journal](SWING_JOURNAL.md), [Market Scope](MARKET_EXPANSION.md) and [Agent Learning](AGENT_LEARNING.md) for supplemental guidance. Keep runtime secrets, ledger/backups and private exports out of source control.
+
+## Specialty agent brains — 10 October 2026
+
+The six remaining agents now have role-specific diagnostics, approved assigned lessons and persistent evidence reports. [Open Agent Brains](https://tcr.161-33-69-185.sslip.io/brains). Read [the specialty guide](AGENT_BRAINS.md) for tools, interpretation, history and limits. Validation: 31 backend tests and interface logic checks. These descriptive previews leave trading/risk/research rules unchanged.

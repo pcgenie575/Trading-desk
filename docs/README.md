@@ -59,3 +59,7 @@ The recorded first SPY comparison used 499 free candles and all eight later-peri
 - [Earlier Oracle deployment notes](../ORACLE_DEPLOYMENT.md): setup/recovery background; its dated status/IP/shape guidance is historical. Use current console settings and these technical requirements when they differ.
 
 Never place passwords, API keys, control tokens, SSH keys or operational database exports in these documents or GitHub.
+
+## Specialty agent brains — 10 October 2026
+
+The six remaining agents now have role-specific diagnostics, approved assigned lessons and persistent evidence reports. [Open Agent Brains](https://tcr.161-33-69-185.sslip.io/brains). Read [the specialty guide](../AGENT_BRAINS.md) for tools, interpretation, history and limits. Validation: 31 backend tests and interface logic checks. These descriptive previews leave trading/risk/research rules unchanged.

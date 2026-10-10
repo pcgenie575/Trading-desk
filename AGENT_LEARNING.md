@@ -77,3 +77,7 @@ ledger backup, preserves existing positions/checkpoints, verifies authenticated
 HTTPS and restarts the service. Source lives in the private project repository.
 
 Paper only, free data only; no broker or real-money connection is added.
+
+## Specialty agent brains — 10 October 2026
+
+The six remaining agents now have role-specific diagnostics, approved assigned lessons and persistent evidence reports. [Open Agent Brains](https://tcr.161-33-69-185.sslip.io/brains). Read [the specialty guide](AGENT_BRAINS.md) for tools, interpretation, history and limits. Validation: 31 backend tests and interface logic checks. These descriptive previews leave trading/risk/research rules unchanged.

@@ -68,3 +68,7 @@ Select Analyst → Open Analyst Brain → choose a US instrument → inspect cha
 | FAILED / INTERRUPTED experiment | Trial did not complete | Keep history; investigate rather than deleting a losing/failed attempt |
 
 See [technical requirements](technical-requirements.md) for access/API rules and [schema](backend-schema.md) for persistent state.
+
+## Specialty agent brains — 10 October 2026
+
+The six remaining agents now have role-specific diagnostics, approved assigned lessons and persistent evidence reports. [Open Agent Brains](https://tcr.161-33-69-185.sslip.io/brains). Read [the specialty guide](../AGENT_BRAINS.md) for tools, interpretation, history and limits. Validation: 31 backend tests and interface logic checks. These descriptive previews leave trading/risk/research rules unchanged.

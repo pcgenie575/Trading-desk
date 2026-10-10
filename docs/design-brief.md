@@ -58,3 +58,7 @@ Analyst Brain adds a close/SMA20/SMA50 chart, readable evidence cards, supported
 ## Acceptance status
 
 Recorded JavaScript checks covered agent selection, event deduplication, escaped record text, research rows/benchmarks, unavailable weekly metrics, forward progress and revision protection. Browser visual/mobile/accessibility review was not completed because preview access was unavailable. Completing that review is proposed work; this brief does not claim visual or accessibility certification.
+
+## Specialty agent brains — 10 October 2026
+
+The six remaining agents now have role-specific diagnostics, approved assigned lessons and persistent evidence reports. [Open Agent Brains](https://tcr.161-33-69-185.sslip.io/brains). Read [the specialty guide](../AGENT_BRAINS.md) for tools, interpretation, history and limits. Validation: 31 backend tests and interface logic checks. These descriptive previews leave trading/risk/research rules unchanged.
