@@ -92,3 +92,6 @@ The [Portfolio Evidence guide](../PORTFOLIO_EVIDENCE.md) documents the shared ri
 ## Reviewed research improvements
 
 Read the [recommendations assessment](recommendations-review.md) and [versioned cost diagnostic](cost-diagnostic.md). The new diagnostic distinguishes gross signal results, FX/fee sensitivity and resized trade paths. Registered experiment counts do not imply independent statistical trials; confidence scores stay unavailable without valid inputs.
+
+
+[Second review and stress diagnostic](second-review.md) · [Daily data layer](data-layer.md) · [Harness boundaries](research-harness.md)

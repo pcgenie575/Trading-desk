@@ -8,6 +8,8 @@ from daily_research import PROTOCOL,SYMBOLS,digest,run_daily
 from cost_diagnostics import diagnose,SCENARIOS
 from dataclasses import asdict
 from cost_scenarios import PROTOCOL as COST_V2_PROTOCOL,diagnose as diagnose_v2
+from cost_stress import PROTOCOL as COST_V3_PROTOCOL,diagnose as diagnose_v3
+from research_inventory import slots
 from market_data import TwelveDataAdapter
 from portfolio_research import PROTOCOL as PORTFOLIO_PROTOCOL,run as run_portfolio
 
@@ -117,15 +119,15 @@ def install(app,services):
         c=db();originals=[dict(x) for x in c.execute('SELECT id,status,protocol FROM research_runs')];labs=[dict(x) for x in c.execute('SELECT id,kind,status,protocol FROM edge_lab_runs')];c.close()
         inventory=[]
         for x in originals:
-            p=json.loads(x['protocol']);n=len(p.get('entries',[]))*len(p.get('exits',[]))
+            p=json.loads(x['protocol']);n=slots(p,'ORIGINAL')
             inventory.append({'id':x['id'],'kind':'ORIGINAL','status':x['status'],'version':p.get('version'),'registered_strategy_slots':n,'cost_method_calculations':None})
         for x in labs:
             p=json.loads(x['protocol']);kind=x['kind'];version=p.get('version')
-            n=8 if kind=='COST' else 8 if kind=='DAILY' else 1 if kind in ('ETF','PORTFOLIO') else 0
-            calculations=(p.get('calculations') or n*len(p.get('scenarios',{}))*2) if kind=='COST' else None
+            n=slots(p,kind)
+            calculations=(p.get('calculations') or n*len(p.get('scenarios',{}))*2 if n is not None else None) if kind=='COST' else None
             inventory.append({'id':x['id'],'kind':kind,'status':x['status'],'version':version,'registered_strategy_slots':n,'cost_method_calculations':calculations})
-        return {'records':inventory,'record_count':len(inventory),'registered_strategy_slots':sum(x['registered_strategy_slots'] for x in inventory),
-            'count_definition':'Registered configuration slots summed across records, including reused strategies, diagnostic neighbours and blocked jobs. Not a count of independent trials or completed evaluations.',
+        return {'records':inventory,'record_count':len(inventory),'registered_strategy_slots':sum(x['registered_strategy_slots'] or 0 for x in inventory),
+            'unclassified_records':sum(x['registered_strategy_slots'] is None for x in inventory),'count_definition':'Registered configuration slots summed across records, including reused strategies, diagnostic neighbours and blocked jobs. Not a count of independent trials or completed evaluations.',
             'all_time_search_count_known':False,'deflated_sharpe':{'available':False,'reason':'No complete, comparable aligned return matrix and independently justified trial count. A guessed six-strategy N would be misleading.'},
             'probability_of_backtest_overfitting':{'available':False,'reason':'No valid common-period candidate return matrix for symmetric cross-validation.'},
             'diagnostic_only':True,'promotion_allowed':False}
@@ -140,6 +142,20 @@ def install(app,services):
         if created:
             r=row(rid)
             try:r['payload']=diagnose_v2(original['symbol'],bars,split);r['status']='COMPLETE'
+            except Exception as e:r['status']='FAILED';r['payload']={'error':type(e).__name__}
+            save(r)
+        return public(row(rid))
+    @app.post('/edge-lab/cost-stress')
+    def cost_stress(payload:DiagnosticInput,x_control_token:str|None=Header(default=None)):
+        control(x_control_token)
+        c=db();original=c.execute('SELECT * FROM research_runs WHERE id=?',(payload.source_run_id,)).fetchone();c.close()
+        if not original or original['status']!='COMPLETE':raise HTTPException(422,'Choose a completed original experiment.')
+        bars=json.loads(original['dataset']);old=json.loads(original['payload']);split=old['split_index']
+        protocol=dict(COST_V3_PROTOCOL,source_run_id=payload.source_run_id,source_protocol=json.loads(original['protocol']),source_dataset_hash=digest(bars))
+        rid,created=create('COST',digest(protocol),protocol,{}, {'symbol':original['symbol'],'bars':bars})
+        if created:
+            r=row(rid)
+            try:r['payload']=diagnose_v3(original['symbol'],bars,split);r['status']='COMPLETE'
             except Exception as e:r['status']='FAILED';r['payload']={'error':type(e).__name__}
             save(r)
         return public(row(rid))

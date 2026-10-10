@@ -33,13 +33,13 @@ def attributed_metrics(trades,bars,cost):
     result['risk_denominator']='Original cost-adjusted planned loss for each fixed-path trade.'
     return result
 
-def diagnose(symbol,bars,split):
+def diagnose(symbol,bars,split,*,cost_scenarios=SCENARIOS,protocol=PROTOCOL):
     variants=[]
     for entry in ENTRIES:
         for exit_style in EXITS:
             baseline=simulate(bars,split,entry,exit_style)
             scenarios={}
-            for name,cost in SCENARIOS.items():
+            for name,cost in cost_scenarios.items():
                 replay=simulate(bars,split,entry,exit_style,cost)
                 m=metrics(replay['trade_log'])
                 m['cost_per_trade_r']=sum(t['costs']/t['risk'] for t in replay['trade_log'])/m['trades'] if m['trades'] else None
@@ -48,13 +48,13 @@ def diagnose(symbol,bars,split):
                     'resized_simulation':dict(m,max_drawdown=replay['max_drawdown'],time_invested_pct=replay['time_invested_pct'])}
             variants.append({'entry':entry,'exit':exit_style,'scenarios':scenarios})
     examples={}
-    for name,cost in SCENARIOS.items():
+    for name,cost in cost_scenarios.items():
         amount=fill(100,5,'buy',cost)['cash']-fill(100,5,'sell',cost)['cash']
         examples[name]={'raw_notional':500,'round_trip_cost':amount,'cost_in_25_dollar_risk':amount/25}
-    return {'version':VERSION,'symbol':symbol,'dataset_hash':fingerprint(symbol,bars),'bars':len(bars),
+    return {'version':protocol['version'],'symbol':symbol,'dataset_hash':fingerprint(symbol,bars),'bars':len(bars),
         'start':bars[0]['datetime'],'end':bars[-1]['datetime'],'split_index':split,'test_start':bars[split]['datetime'],
         'variants':variants,'examples':examples,'period_reused':True,'edge_validated':False,'promotion_allowed':False,
-        'trial_disclosure':PROTOCOL['statistical_status'],
+        'trial_disclosure':protocol['statistical_status'],
         'limitations':['Existing SPY survivor, short four-hour history, small trade count and inspected period; no independent validation.',
             'Gross means no simulated execution costs on the same fills, not a newly traded signal.',
             'Dividends, investor tax, funding conversion, currency returns and regulatory fees are omitted.',
