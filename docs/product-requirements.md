@@ -69,3 +69,10 @@ Read [Control Boundaries](../CONTROL_BOUNDARIES.md) for exact controls, migratio
 The schema now includes `edge_lab_runs` (23 tables total). It retains the registered protocol, progress, accepted provider pages, exact dataset hash and results. The collector shares the existing credit gate and resumes saved pages after restart; denied free data stops collection. Detailed datasets/trade logs remain private. Validation: 55 backend tests and Edge Research UI logic checks; the new Edge Research desktop layout and live cost/progress display were inspected in Chrome. Comprehensive mobile/accessibility acceptance remains outstanding.
 
 
+
+
+## Portfolio evidence release — 10 October 2026
+
+The user can inspect how common capital and risk constraints change results, see adverse/favourable excursions with coverage warnings, and inspect retained denial evidence. Research cannot activate strategies. The failed daily development screen continues to block new candidate promotion; existing v1 remains paper observation.
+
+See [Portfolio Evidence](../PORTFOLIO_EVIDENCE.md) for exact protocol, negative results and remaining evidence gates.

@@ -8,6 +8,7 @@ from daily_research import PROTOCOL,SYMBOLS,digest,run_daily
 from cost_diagnostics import diagnose,SCENARIOS
 from dataclasses import asdict
 from market_data import TwelveDataAdapter
+from portfolio_research import PROTOCOL as PORTFOLIO_PROTOCOL,run as run_portfolio
 
 class DiagnosticInput(BaseModel):
     source_run_id:str=Field(min_length=1,max_length=100)
@@ -80,14 +81,16 @@ def install(app,services):
     @app.on_event('startup')
     def resume_jobs():
         with lock:
-            c=db();c.execute("UPDATE edge_lab_runs SET status='INTERRUPTED' WHERE kind='COST' AND status='RUNNING'");c.commit();c.close()
+            c=db();c.execute("UPDATE edge_lab_runs SET status='INTERRUPTED' WHERE kind IN ('COST','PORTFOLIO') AND status='RUNNING'");c.commit();c.close()
         start()
     @app.get('/edge')
     def page():return HTMLResponse(Path(__file__).with_name('edge.html').read_text(encoding='utf8'))
+    @app.get('/portfolio')
+    def portfolio_page():return HTMLResponse(Path(__file__).with_name('portfolio.html').read_text(encoding='utf8'))
     @app.get('/edge-lab')
     def overview():
         c=db();ids=[r['id'] for r in c.execute('SELECT id FROM edge_lab_runs ORDER BY ts DESC LIMIT 20')];c.close()
-        return {'daily_protocol':PROTOCOL,'runs':[public(row(rid)) for rid in ids],'operational_strategy_unchanged':True}
+        return {'daily_protocol':PROTOCOL,'portfolio_protocol':PORTFOLIO_PROTOCOL,'runs':[public(row(rid)) for rid in ids],'operational_strategy_unchanged':True}
     @app.get('/edge-lab/{rid}/dataset')
     def dataset_export(rid:str):
         r=row(rid);return {'protocol':r['protocol'],'dataset':r['dataset']}
@@ -112,6 +115,19 @@ def install(app,services):
     def daily(x_control_token:str|None=Header(default=None)):
         control(x_control_token);rid,created=create('DAILY',digest(PROTOCOL),PROTOCOL,{'completed_pages':0,'required_pages':40,'attempted_requests':0,'selection_locked_before_data':True},{})
         if created:start()
+        return public(row(rid))
+    @app.post('/edge-lab/portfolio')
+    def portfolio(payload:DiagnosticInput,x_control_token:str|None=Header(default=None)):
+        control(x_control_token);source=row(payload.source_run_id)
+        if source['kind']!='DAILY' or source['status']!='COMPLETE':raise HTTPException(422,'A completed daily dataset is required.')
+        pages=source['dataset'];data={s:pages[s+':2006-01-01']['bars']+pages.get(s+':2006-01-01:boundary',{}).get('bars',[]) for s in PORTFOLIO_PROTOCOL['symbols']}
+        protocol=dict(PORTFOLIO_PROTOCOL,source_run_id=source['id'],source_dataset_hash=source['payload']['dataset_hash'])
+        rid,created=create('PORTFOLIO',digest(protocol),protocol,{'development_only':True},data)
+        if created:
+            r=row(rid)
+            try:r['payload'].update(result=run_portfolio(data));r['status']='COMPLETE'
+            except Exception as e:r['payload']['error']=str(e)[:400];r['status']='FAILED'
+            save(r);emit('Research Lab','Performance Reviewer','PORTFOLIO_REPLAY_RECORDED',r['status'],'Development portfolio replay retained; no holdout calculation or activation.',{'id':rid})
         return public(row(rid))
     @app.post('/edge-lab/{rid}/retry-data')
     def retry(rid:str,x_control_token:str|None=Header(default=None)):

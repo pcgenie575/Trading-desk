@@ -9,6 +9,8 @@ from specialty_brains import build as build_specialty_brains, VERSION as SPECIAL
 from data_quality import assess as assess_quality
 from decision_contracts import digest as contract_digest, sign as contract_sign, verify as contract_verify, VERSION as CONTRACT_VERSION
 from execution import COSTS, fill, sized_entry
+from risk_policy import assess as assess_risk
+from excursions import initial as excursion_initial, observe as excursion_observe, report as excursion_report
 from exposure import check as exposure_check, LIMITS as EXPOSURE_LIMITS, SECTOR, GROUP
 from research_engine import compare, validate_bars, fingerprint, PROTOCOL
 from urllib.parse import urlparse
@@ -114,6 +116,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS reviews(
       id TEXT PRIMARY KEY, ts TEXT, kind TEXT, payload TEXT
     );
+    CREATE TABLE IF NOT EXISTS trade_excursions(trade_id TEXT PRIMARY KEY,payload TEXT);
     CREATE TABLE IF NOT EXISTS trade_context(
       trade_id TEXT PRIMARY KEY, payload TEXT NOT NULL
     );
@@ -274,41 +277,13 @@ def freeze_system(reason):
     emit("Supervisor","ALL","FREEZE","FROZEN",reason)
 
 def risk_assessment(candidate):
-    checks=[]
-    def gate(code,passed,detail):checks.append({'code':code,'status':'PASS' if passed else 'FAIL','detail':detail if not passed or isinstance(detail,dict) else 'Within configured constraint.'})
-    consistent,reason=candidate_integrity(candidate)
-    gate('SIZING_INTEGRITY',consistent,reason)
-    if not consistent:return {'approved':False,'reason':'Book-informed sizing check: '+reason,'checks':checks}
-    risk_value=candidate.get('cash_cost',candidate['position_value']);risk_loss=candidate.get('cost_adjusted_risk',candidate['planned_loss'])
-    if not all(type(v) in (int,float) and math.isfinite(v) and v>0 for v in (risk_value,risk_loss)):
-        gate('COST_ADJUSTED_VALUES',False,'Costs and loss must be finite and positive.')
-        return {'approved':False,'reason':'Invalid cost-adjusted values.','checks':checks}
-    s=get_state()
-    gate('DRAWDOWN',s['peak_equity']-s['equity']<RULES['drawdown_freeze'],'Drawdown circuit breaker reached.')
-    gate('NOT_FROZEN',not s['frozen'],'System is frozen.')
-    gate('NO_DUPLICATE_POSITION',not open_position(),'An open position already exists for this symbol.')
-    active=open_positions()
-    gate('POSITION_COUNT',len(active)<MAX_OPEN,'Maximum open positions reached.')
-    gate('PORTFOLIO_COST',sum(p['position_value'] for p in active)+risk_value<=MAX_EXPOSURE+1e-6,'Portfolio exposure limit reached.')
-    gate('PORTFOLIO_LOSS',sum(p['planned_loss'] for p in active)+risk_loss<=MAX_PORTFOLIO_PLANNED_LOSS+1e-6,'Portfolio planned-loss limit reached.')
-    gate('CASH',risk_value<=s['cash'],'Insufficient paper cash.')
-    gate('PAPER_ELIGIBLE',bool(INSTRUMENTS.get(current_symbol(),{}).get('paper_enabled')),'Instrument is observation only.')
-    gate('DAILY_LOSS',today_realized()>-RULES['daily_loss_stop'],'Daily loss circuit breaker reached.')
-    gate('POSITION_COST',risk_value<=RULES['max_position']+1e-6,'Maximum position exceeded.')
-    gate('POSITION_LOSS',risk_loss<=RULES['max_planned_loss']+1e-6,'Maximum planned loss exceeded.')
-    sector=SECTOR.get(current_symbol(),'Unknown');group=GROUP.get(current_symbol(),'Unknown')
-    gate('SECTOR',risk_value+sum(p['position_value'] for p in active if SECTOR.get(p['symbol'],'Unknown')==sector)<=750+1e-6,'Sector exposure exceeds $750.')
-    gate('EQUITY_GROUP',group!='US equity' or risk_value+sum(p['position_value'] for p in active if GROUP.get(p['symbol'])==group)<=1000+1e-6,'US equity overlap exceeds $1,000.')
-    series={}
+    active=open_positions();series={}
     con=db();cutoff=(datetime.now(ZoneInfo('America/New_York')).replace(tzinfo=None)-timedelta(days=10)).isoformat(sep=' ')
     for symbol in {current_symbol(),*(p['symbol'] for p in active)}:
         rows=con.execute("SELECT bar_time,close FROM candles WHERE symbol=? AND interval='4h' ORDER BY bar_time DESC LIMIT 100",(symbol,)).fetchall()
         series[symbol]={r['bar_time']:r['close'] for r in rows} if rows and rows[0]['bar_time']>=cutoff else {}
     con.close()
-    allowed,details=exposure_check(current_symbol(),risk_value,active,series)
-    gate('CONCENTRATION_COMBINED',allowed,details)
-    failed=[c for c in checks if c['status']=='FAIL']
-    return {'approved':not failed,'reason':failed[0]['detail'] if failed else 'All deterministic risk and concentration checks passed.','checks':checks}
+    return assess_risk(candidate,current_symbol(),get_state(),active,today_realized(),series,RULES)
 
 def risk_check(candidate):
     report=risk_assessment(candidate);return report['approved'],report['reason']
@@ -336,6 +311,7 @@ def paper_enter(candidate, bar):
       (id,symbol,status,entry_time,entry_price,qty,stop,position_value,planned_loss,entry_fee,estimated_costs)
       VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
       (trade_id,current_symbol(),"OPEN",bar["datetime"],entry,qty,candidate["stop"],value,planned,f["fee"],f["total_cost"]))
+    con.execute('INSERT INTO trade_excursions VALUES (?,?)',(trade_id,json.dumps(excursion_initial(raw,qty,planned))))
     context={"strategy":"Trend Breakout v1","mode":"paper","captured_at":utcnow(),
              "candidate":candidate,"strategy_config":asdict(CONFIG),"risk_rules":dict(RULES),
              "instrument":dict(INSTRUMENTS[current_symbol()])}
@@ -355,6 +331,7 @@ def paper_enter(candidate, bar):
 
 @atomic
 def paper_exit(pos, raw_price, bar_time, reason):
+    update_trade_excursion(pos,dict(datetime=bar_time,open=float(raw_price),low=float(raw_price),high=float(raw_price)))
     f=fill(float(raw_price),pos['qty'],'sell');exit_price=f['price'];proceeds=f['cash']
     pnl=proceeds-pos["position_value"]
     con=db()
@@ -370,12 +347,34 @@ def paper_exit(pos, raw_price, bar_time, reason):
         freeze_system(f"Daily realized loss reached ${-today_realized():.2f}.")
     return pnl
 
+@atomic
+def update_trade_excursion(pos,bar,stop=None):
+    con=db();row=con.execute('SELECT payload FROM trade_excursions WHERE trade_id=?',(pos['id'],)).fetchone()
+    # Legacy positions start collecting now; do not invent missing excursions.
+    state=json.loads(row['payload']) if row else excursion_initial(pos['entry_price'],pos['qty'],pos['planned_loss'],False)
+    if state['last_bar']:
+        skipped=con.execute("SELECT COUNT(*) FROM candles WHERE symbol=? AND interval='4h' AND bar_time>? AND bar_time<?",(pos['symbol'],state['last_bar'],bar['datetime'])).fetchone()[0]
+        if skipped:
+            state['complete_since_entry']=False;state['skipped_saved_bars']=state.get('skipped_saved_bars',0)+skipped
+    state=excursion_observe(state,bar,stop)
+    con.execute('INSERT OR REPLACE INTO trade_excursions VALUES (?,?)',(pos['id'],json.dumps(state)));con.commit();con.close()
+    return state
+
+@app.get('/trade-excursions')
+def trade_excursions():
+    con=db();rows=[dict(r) for r in con.execute('SELECT p.id,p.symbol,p.status,p.realized_pnl,p.planned_loss,p.exit_reason,e.payload FROM positions p LEFT JOIN trade_excursions e ON p.id=e.trade_id')];con.close()
+    for r in rows:
+        value=r.pop('payload');r['excursions']=excursion_report(json.loads(value)) if value else None
+        r['loss_exceeded_plan']=r['realized_pnl'] is not None and r['realized_pnl'] < -r['planned_loss']-1e-6
+    return {'trades':rows,'note':'Missing legacy history is unknown. Excess planned loss does not alone establish an earnings gap.'}
+
 def process_exit(bars):
     pos=open_position()
     if not pos: return None
     bar=bars[-1]
     closes=[float(x["close"]) for x in bars]
     exit_ma=sum(closes[-20:])/20 if len(closes)>=20 else None
+    update_trade_excursion(pos,bar,pos["stop"] if float(bar["low"])<=pos["stop"] else None)
     if float(bar["low"]) <= pos["stop"]:
         return paper_exit(pos,min(pos["stop"],float(bar["open"])),bar["datetime"],"PROTECTIVE_STOP")
     if exit_ma is not None and float(bar["close"]) < exit_ma:

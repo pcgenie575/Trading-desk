@@ -77,3 +77,8 @@ The [Edge Research guide](../EDGE_RESEARCH.md) describes the recorded cost diagn
 
 
 
+
+
+## Portfolio evidence release — 10 October 2026
+
+The [Portfolio Evidence guide](../PORTFOLIO_EVIDENCE.md) documents the shared risk policy, development-only account replay, persisted MAE/MFE, and outstanding earnings/corporate-action/AUD gates. Open the private [Portfolio Evidence dashboard](https://tcr.161-33-69-185.sslip.io/portfolio). This release preserves the failed daily protocol/results and all operational risk limits. SQLite now has 24 tables.

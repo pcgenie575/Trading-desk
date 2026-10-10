@@ -79,3 +79,8 @@ The completed development test on 2006–2015 returned:
 
 Both baseline neighbours were also negative under normal and doubled costs. Trade counts/paths can differ across cost scenarios; these figures describe independent sleeves, not one portfolio. All six candidates failed the development selection rule. **No candidate was selected, no 2016–2026 validation metrics were calculated, and no v2 was activated.** The validation data is saved, but its prices are accessible and the period is historical; it must not be advertised as provably unseen. A later cost or signal hypothesis requires its own predeclared protocol and explicit record of prior exposure. These results support stopping this experiment, not claiming that every swing strategy is unprofitable.
 
+
+
+## Portfolio evidence release — 10 October 2026
+
+The [Portfolio Evidence guide](PORTFOLIO_EVIDENCE.md) documents the shared risk policy, development-only account replay, persisted MAE/MFE, and outstanding earnings/corporate-action/AUD gates. Open the private [Portfolio Evidence dashboard](https://tcr.161-33-69-185.sslip.io/portfolio). This release preserves the failed daily protocol/results and all operational risk limits. SQLite now has 24 tables.

@@ -96,3 +96,10 @@ Read [Control Boundaries](../CONTROL_BOUNDARIES.md) for exact controls, migratio
 The schema now includes `edge_lab_runs` (23 tables total). It retains the registered protocol, progress, accepted provider pages, exact dataset hash and results. The collector shares the existing credit gate and resumes saved pages after restart; denied free data stops collection. Detailed datasets/trade logs remain private. Validation: 55 backend tests and Edge Research UI logic checks; the new Edge Research desktop layout and live cost/progress display were inspected in Chrome. Comprehensive mobile/accessibility acceptance remains outstanding.
 
 
+
+
+## Portfolio evidence release — 10 October 2026
+
+Operations and daily portfolio research share risk_policy.assess and execution.py. Both queue and fill gates run in the replay. Live signed approvals, quality gates and atomic writes remain additional controls; the daily diagnostic does not reproduce four-hour scanner timing or downtime. New metadata cannot silently change limits or universe eligibility.
+
+See [Portfolio Evidence](../PORTFOLIO_EVIDENCE.md) for exact protocol, negative results and remaining evidence gates.

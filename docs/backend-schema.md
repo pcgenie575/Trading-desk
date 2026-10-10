@@ -103,3 +103,10 @@ candle_revision_reviews: id PK, symbol, ts, quality_hash, reason and original/ac
 The schema now includes `edge_lab_runs` (23 tables total). It retains the registered protocol, progress, accepted provider pages, exact dataset hash and results. The collector shares the existing credit gate and resumes saved pages after restart; denied free data stops collection. Detailed datasets/trade logs remain private. Validation: 55 backend tests and Edge Research UI logic checks; the new Edge Research desktop layout and live cost/progress display were inspected in Chrome. Comprehensive mobile/accessibility acceptance remains outstanding.
 
 
+
+
+## Portfolio evidence release — 10 October 2026
+
+There are now 24 SQLite tables. The added trade_excursions table has trade_id as primary key and a JSON payload containing original price/quantity/risk, observed extrema, last bar, coverage and ordering flags. edge_lab_runs now also stores PORTFOLIO diagnostics. Original trade_context snapshots and all earlier results remain intact.
+
+See [Portfolio Evidence](../PORTFOLIO_EVIDENCE.md) for exact protocol, negative results and remaining evidence gates.
