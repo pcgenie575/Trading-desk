@@ -63,3 +63,7 @@ The Research Lab now includes fixed strategy/exit comparisons, passive benchmark
 ## Understand the whole Trading Desk
 
 Start with the [six-document guide and glossary](docs/README.md). It covers Product Requirements, App Flow, Technical Requirements, Backend Schema, Design Brief and Implementation Plan, with dated evidence and a distinction between deployed features, research and proposed work.
+
+## Analyst tools addendum — 10 October 2026
+
+[Open Analyst Brain](https://tcr.161-33-69-185.sslip.io/analyst) to inspect the Analyst’s tools, approved knowledge and recorded experience. [Read the Analyst guide](ANALYST_BRAIN.md).

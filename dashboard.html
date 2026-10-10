@@ -16,7 +16,7 @@
 
 <div class="top"><div class="brand"><div class="brand-mark" aria-hidden="true">↗</div><div><span class="eyebrow">CONTROL ROOM / PAPER OPERATIONS</span><h1>Trading Desk</h1><p class="muted">Your team, decisions and paper account in one view.</p></div></div><span class="pill">PAPER ONLY · FREE DATA / 4H</span></div>
 
-<nav class="nav" aria-label="Dashboard sections"><a href="/research">Research Lab &amp; Knowledge ↗</a><a href="#agent-flow">Agent network</a><a href="#agent-learning">Agent learning</a><a href="#journal-workspace">Journal & analytics</a><a href="#strategy-workspace">Plan & playbook</a><a href="#market-coverage">Market coverage</a><a href="#paper-ledger">Paper ledger</a><a href="#audit-feed">Audit feed</a></nav><section id="swing-summary" class="swing-summary" aria-label="Monthly swing trading overview"></section><div id="error" role="alert"></div><div id="metrics" class="metrics"></div>
+<nav class="nav" aria-label="Dashboard sections"><a href="/analyst">Analyst Brain ↗</a><a href="/research">Research Lab &amp; Knowledge ↗</a><a href="#agent-flow">Agent network</a><a href="#agent-learning">Agent learning</a><a href="#journal-workspace">Journal & analytics</a><a href="#strategy-workspace">Plan & playbook</a><a href="#market-coverage">Market coverage</a><a href="#paper-ledger">Paper ledger</a><a href="#audit-feed">Audit feed</a></nav><section id="swing-summary" class="swing-summary" aria-label="Monthly swing trading overview"></section><div id="error" role="alert"></div><div id="metrics" class="metrics"></div>
 
 <div class="desk-layout"><section id="agent-flow"><span class="eyebrow">THE TEAM AT WORK</span><h2>Agent flow</h2><p class="muted">Select an agent to inspect its work. Moving lights follow new recorded messages between agents.</p><div class="flow-scroll"><div class="diagram"><span class="diagram-label">AUTONOMOUS PAPER DESK</span><svg id="links" class="links" viewBox="0 0 1000 680" aria-label="Agent communication connections" role="img"></svg><div id="bots" class="bots"></div></div></div><div class="legend"><span>Message route</span><span>Supervisor oversight</span></div><div id="flow-status" class="flow-status" role="status" aria-live="polite">Waiting for recorded communications.</div><p class="muted" id="updated"></p></section><aside id="detail" class="panel" aria-live="polite"></aside></div>
 
@@ -87,6 +87,7 @@ function renderDetail(){
 
  let facts='';
 
+ if(selected==='Analyst')facts='<p><a href="/analyst">Open Analyst Brain ↗</a> to inspect trend, SPY context, relative return, volatility, momentum, volume, approved lessons and recorded experience. New tools are descriptive; active entry rules remain fixed.</p>';
  if(selected==='Risk & Compliance')facts='<p>Maximum position '+money(s.rules.max_position)+' · Planned loss '+money(s.rules.max_planned_loss)+'<br>Portfolio: up to '+s.rules.max_open_positions+' positions · '+money(s.rules.max_portfolio_exposure)+' exposure<br>Daily loss stop '+money(s.rules.daily_loss_stop)+' · Drawdown freeze '+money(s.rules.drawdown_freeze)+'</p>';
 
  if(selected==='Supervisor')facts='<p>Last scheduler cycle: '+esc(stamp(s.state.last_cycle))+'<br>Last newly processed candle: '+esc(s.last_processed_bar||'None')+'</p>';

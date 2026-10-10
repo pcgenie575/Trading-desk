@@ -4,6 +4,7 @@ from datetime import datetime, timezone, date, timedelta
 import sqlite3, uuid, json, threading, os, math, secrets, base64
 from functools import wraps
 from dataclasses import asdict
+from analyst_tools import analyse, VERSION as ANALYST_VERSION, PARAMETERS as ANALYST_PARAMETERS
 from execution import COSTS, fill, sized_entry
 from exposure import check as exposure_check, LIMITS as EXPOSURE_LIMITS
 from research_engine import compare, validate_bars, fingerprint, PROTOCOL
@@ -118,6 +119,7 @@ def init_db():
       review_status TEXT NOT NULL, followed_rules TEXT NOT NULL, notes TEXT NOT NULL,
       rule_break TEXT NOT NULL DEFAULT 'none'
     );
+    CREATE TABLE IF NOT EXISTS analyst_reports(symbol TEXT,bar_time TEXT,version TEXT,context_hash TEXT,created_at TEXT,payload TEXT,PRIMARY KEY(symbol,bar_time,version,context_hash));
     CREATE TABLE IF NOT EXISTS pending_orders(symbol TEXT PRIMARY KEY,side TEXT,signal_time TEXT,payload TEXT);
     CREATE TABLE IF NOT EXISTS research_runs(id TEXT PRIMARY KEY,ts TEXT,symbol TEXT,dataset_hash TEXT,protocol TEXT,test_start TEXT,test_end TEXT,status TEXT,payload TEXT,dataset TEXT);
     CREATE TABLE IF NOT EXISTS forward_plans(id TEXT PRIMARY KEY,symbol TEXT,registered_at TEXT,protocol TEXT,status TEXT,run_id TEXT);
@@ -438,6 +440,9 @@ def process_bars(bars, allow_entry=True):
         set_state(checkpoint_key(), bars[-1]["datetime"])
         set_state("last_success", utcnow())
         emit("Market Data","Analyst","NEW_BAR","RECEIVED",f"New completed {current_symbol()} 4-hour candle received.",{"bar":bars[-1]})
+        analysis=build_analysis(current_symbol(),bars)
+        save_analysis(analysis)
+        emit("Analyst","Logger","TREND_ANALYSIS","CONTEXT",analysis["summary"],analysis)
 
         con=db();order=con.execute('SELECT * FROM pending_orders WHERE symbol=?',(current_symbol(),)).fetchone();con.close()
         order_payload=json.loads(order['payload']) if order else {}
@@ -475,6 +480,7 @@ def process_bars(bars, allow_entry=True):
             return {"status":"ENTRY_SKIPPED"}
         sig=signal_from_bars(bars)
         sig['learning']=analyst_guidance(sig)
+        sig['analysis']=analysis
         emit("Analyst","Risk & Compliance",sig["signal"],
              "PENDING" if sig["signal"]=="CANDIDATE" else "NO_ACTION",sig["reason"],sig)
         if sig["signal"]!="CANDIDATE":
@@ -516,6 +522,7 @@ def startup():
     init_db()
     # Interrupted experiments remain retained and cannot masquerade as completed trials.
     con=db();con.execute("UPDATE research_runs SET status='INTERRUPTED' WHERE status='RUNNING'");con.commit();con.close()
+    seed_analyst_reports()
     register_forward_plan()
     maybe_weekly_report()
     training=curriculum()
@@ -886,3 +893,39 @@ def maybe_forward_research():
         con.commit()
         emit('Performance Reviewer','Research Lab','FORWARD_EXPERIMENT',state,'Reserved future-period comparisons retained; no activation.',{'id':rid,'plan_id':plan['id']})
     con.commit();con.close()
+
+
+def build_analysis(symbol,bars=None,knowledge=None):
+    con=db()
+    if bars is None:bars=list(reversed([dict(r) for r in con.execute("SELECT bar_time AS datetime,open,high,low,close,volume FROM candles WHERE symbol=? AND interval='4h' ORDER BY bar_time DESC LIMIT 100",(symbol,))]))
+    market=list(reversed([dict(r) for r in con.execute("SELECT bar_time AS datetime,open,high,low,close,volume FROM candles WHERE symbol='SPY' AND interval='4h' ORDER BY bar_time DESC LIMIT 600")]))
+    con.close()
+    try:return analyse(symbol,bars,market,knowledge=knowledge if knowledge is not None else knowledge_for_agent('Analyst',True))
+    except (ValueError,KeyError,TypeError,OverflowError):return {'version':ANALYST_VERSION,'symbol':symbol,'status':'INVALID_DATA','summary':'Analysis unavailable: saved candle validation failed.','knowledge':knowledge_for_agent('Analyst',True)}
+
+@atomic
+def save_analysis(report):
+    if not report.get('bar_time') or not report.get('context_hash'):return
+    con=db();con.execute('INSERT OR IGNORE INTO analyst_reports VALUES (?,?,?,?,?,?)',(report['symbol'],report['bar_time'],report['version'],report['context_hash'],utcnow(),json.dumps(report)));con.commit();con.close()
+
+def seed_analyst_reports():
+    for symbol in INSTRUMENTS:save_analysis(build_analysis(symbol))
+
+@app.get('/analyst-analysis')
+def analyst_analysis():
+    knowledge=knowledge_for_agent('Analyst',True);con=db()
+    closed=[dict(r) for r in con.execute("SELECT id,status,exit_time,planned_loss,realized_pnl FROM positions WHERE status='CLOSED' ORDER BY exit_time DESC LIMIT 100")]
+    total=con.execute("SELECT COUNT(*) FROM positions WHERE status='CLOSED'").fetchone()[0];con.close()
+    return {'version':ANALYST_VERSION,'parameters':ANALYST_PARAMETERS,'reports':[build_analysis(symbol,knowledge=knowledge) for symbol in INSTRUMENTS if INSTRUMENTS[symbol]['paper_enabled']],
+            'knowledge':knowledge,'memory':dict(evidence_review(closed),total_closed_trades=total,sample_scope='Most recent up to 100 closed paper trades; current ledger may include legacy entry costs.'),
+            'policy':'Descriptive tools and versioned reference context. Active Trend Breakout v1, risk limits and reserved research protocol are unchanged. No model fine-tuning or automatic lesson execution.','extra_provider_requests':0}
+
+@app.get('/analyst-analysis/{symbol}/history')
+def analyst_analysis_history(symbol: str,limit:int=20):
+    if symbol not in INSTRUMENTS:raise HTTPException(404,'Unknown instrument.')
+    con=db();rows=con.execute('SELECT payload FROM analyst_reports WHERE symbol=? ORDER BY created_at DESC LIMIT ?',(symbol,min(max(limit,1),50))).fetchall();con.close();return [json.loads(r['payload']) for r in rows]
+
+@app.get('/analyst',response_class=HTMLResponse)
+def analyst_page():
+    from pathlib import Path
+    return HTMLResponse(Path(__file__).with_name('analyst.html').read_text(encoding='utf-8'))

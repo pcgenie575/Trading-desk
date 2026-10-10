@@ -61,3 +61,7 @@ Existing positions receive exit priority. A touched protective stop uses the low
 | FAILED / INTERRUPTED experiment | Trial did not complete | Keep history; investigate rather than deleting a losing/failed attempt |
 
 See [technical requirements](technical-requirements.md) for access/API rules and [schema](backend-schema.md) for persistent state.
+
+## Analyst tools addendum — 10 October 2026
+
+Select Analyst → Open Analyst Brain → choose a US instrument → inspect chart, conditions, flags, approved lessons and paper experience → load saved history. Page refresh reads cached data and costs no provider requests. Candidate analysis carries an immutable report; custom lessons remain reference context.

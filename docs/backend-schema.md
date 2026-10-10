@@ -75,3 +75,7 @@ Trading/knowledge operations use a process-wide reentrant lock and BEGIN IMMEDIA
 The API caps audit reads at 1000 messages, research summaries at 20 per page and weekly reports at 52; these read limits do not delete stored history. Operational candles/audit/equity/history can keep growing. Summary responses omit large curves/trade logs; one-run exports retain them. No general retention purge, export-import restore workflow or encrypted off-server destination is implemented.
 
 Use the online SQLite backup API for consistent backups, validate integrity before restore, and stop the application before replacing its DB. Never commit real ledger/backups, credentials or private reviews to GitHub. See [technical requirements](technical-requirements.md) for access and recovery constraints.
+
+## Analyst tools addendum — 10 October 2026
+
+analyst_reports adds symbol, bar_time, version, context_hash, created_at and JSON payload; primary key is symbol + bar_time + version + context_hash. Input candles, market context and knowledge versions identify each report. INSERT OR IGNORE preserves an existing snapshot. New trade candidate JSON also carries its analysis. History reads are bounded; persistence has no automatic purge.

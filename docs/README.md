@@ -54,3 +54,7 @@ The recorded first SPY comparison used 499 free candles and all eight later-peri
 - [Earlier Oracle deployment notes](../ORACLE_DEPLOYMENT.md): setup/recovery background; its dated status/IP/shape guidance is historical. Use current console settings and these technical requirements when they differ.
 
 Never place passwords, API keys, control tokens, SSH keys or operational database exports in these documents or GitHub.
+
+## Analyst tools addendum — 10 October 2026
+
+[Analyst Brain guide](../ANALYST_BRAIN.md) documents the analyst-tools-v1 addendum: descriptive trend tools, knowledge/experience and analysis history. Its 26-test validation extends the earlier 20-test baseline; browser visual review remains outstanding.

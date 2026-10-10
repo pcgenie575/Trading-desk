@@ -60,3 +60,7 @@ For rollback, preserve the database and current evidence; do not delete position
 ## Documentation maintenance
 
 Update these six documents when behaviour changes. Record the source commit, local checks, deployment evidence, research status and unresolved issues. Keep the root README and [documentation index](README.md) current. Source code is authoritative when an older feature note differs; never present historical health evidence as a live status guarantee.
+
+## Analyst tools addendum — 10 October 2026
+
+Descriptive Analyst tools are now implemented in analyst-tools-v1 and validated with 26 backend tests plus UI logic checks. Any promotion of trend/relative-strength/volume filters into entries still belongs to a new recorded protocol and separate validation period; the existing reserved forward test stays frozen.

@@ -40,3 +40,7 @@ The first recorded SPY historical comparison used 499 free candles: all eight la
 Install `requirements.txt` and `httpx` in a disposable Python environment, then run `python -m unittest discover -s tests -v`. Tests use isolated ledgers. Do not supply production keys or point tests at the operating database. Framework pins and recorded tests do not replace dependency/security review, browser acceptance or restore rehearsals.
 
 See [Start Here](START_HERE.md), [Research Lab](RESEARCH_LAB.md), [Swing Journal](SWING_JOURNAL.md), [Market Scope](MARKET_EXPANSION.md) and [Agent Learning](AGENT_LEARNING.md) for supplemental guidance. Keep runtime secrets, ledger/backups and private exports out of source control.
+
+## Analyst tools addendum — 10 October 2026
+
+The [Analyst Brain](https://tcr.161-33-69-185.sslip.io/analyst) now shows trend alignment/slope, SPY context, aligned relative strength, Wilder ATR/RSI, same-session volume, structure/extension flags, approved lessons and saved analysis. See [Analyst guide](ANALYST_BRAIN.md). These tools are descriptive; active rules and reserved research remain fixed.

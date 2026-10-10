@@ -73,3 +73,7 @@ SQLite is bind-mounted from host `data` to container `/data`; rebuilding the ima
 Daily backups use SQLite’s online backup API and retain 14 copies on the VM. A consistent copy was also downloaded locally in verification. Automatic encrypted off-server backups remain unconfigured. Stop the application before restoring a verified DB, preserve the old copy, then validate integrity, ledger and pending orders before resuming. Do not overwrite an active ledger.
 
 Recorded validation: 20 backend tests, JavaScript interaction checks, authenticated HTTPS, scheduler health, restart persistence, preserved entry history and cash reconciliation. Browser visual/accessibility checks remain incomplete. Run tests against disposable databases only. Development dependencies include httpx for API tests; secrets are unnecessary for synthetic fixtures. Unbounded operational history, database growth, restore drills and VM resource trends need continued review; current code has no versioned migration ledger or general API rate-limit layer.
+
+## Analyst tools addendum — 10 October 2026
+
+analyst_tools.py supplies deterministic Wilder ATR/RSI, trend/slope, aligned relative-return, same-session volume and descriptive flags. Authenticated GET /analyst, /analyst-analysis and /analyst-analysis/{symbol}/history expose the page, read-only preview and bounded history. Startup/new candles persist reports; 26 backend tests passed for this additive release. No active strategy/research protocol change.

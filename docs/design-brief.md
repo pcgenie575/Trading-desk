@@ -54,3 +54,7 @@ Always distinguish recorded paper P/L from hypothetical research P/L. Use sample
 ## Acceptance status
 
 Recorded JavaScript checks covered agent selection, event deduplication, escaped record text, research rows/benchmarks, unavailable weekly metrics, forward progress and revision protection. Browser visual/mobile/accessibility review was not completed because preview access was unavailable. Completing that review is proposed work; this brief does not claim visual or accessibility certification.
+
+## Analyst tools addendum — 10 October 2026
+
+Analyst Brain adds a close/SMA20/SMA50 chart, readable evidence cards, supported/available conditions, uncertainty flags, approved lessons and historical reports. Condition counts are not win probabilities. Unknown values remain unavailable; RSI and relative return versus SPY have separate labels. Instrument changes clear the history selection; refresh preserves an opened history list.
