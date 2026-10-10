@@ -131,6 +131,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS candle_revision_reviews(id TEXT PRIMARY KEY,symbol TEXT,ts TEXT,quality_hash TEXT,reason TEXT,payload TEXT);
     CREATE TABLE IF NOT EXISTS pending_orders(symbol TEXT PRIMARY KEY,side TEXT,signal_time TEXT,payload TEXT);
     CREATE TABLE IF NOT EXISTS research_runs(id TEXT PRIMARY KEY,ts TEXT,symbol TEXT,dataset_hash TEXT,protocol TEXT,test_start TEXT,test_end TEXT,status TEXT,payload TEXT,dataset TEXT);
+    CREATE TABLE IF NOT EXISTS edge_lab_runs(id TEXT PRIMARY KEY,kind TEXT,protocol_key TEXT,ts TEXT,status TEXT,protocol TEXT,payload TEXT,dataset TEXT,UNIQUE(kind,protocol_key));
     CREATE TABLE IF NOT EXISTS forward_plans(id TEXT PRIMARY KEY,symbol TEXT,registered_at TEXT,protocol TEXT,status TEXT,run_id TEXT);
     CREATE TABLE IF NOT EXISTS weekly_reports(week TEXT PRIMARY KEY,ts TEXT,payload TEXT);
     CREATE TABLE IF NOT EXISTS equity_history(ts TEXT PRIMARY KEY,equity REAL,peak REAL);
@@ -1107,7 +1108,7 @@ def decision_evidence(limit:int=20,offset:int=0):
 @app.get('/data-quality/{symbol}/history')
 def quality_history(symbol:str,limit:int=10):
     if symbol not in INSTRUMENTS:raise HTTPException(404,'Unknown instrument.')
-    con=db();rows=con.execute('SELECT ts,payload FROM quality_reports WHERE symbol=? ORDER BY ts DESC LIMIT ?',(symbol,min(max(limit,1),20))).fetchall();con.close()
+    con=db();rows=con.execute('SELECT ts,payload FROM quality_reports WHERE symbol=? ORDER BY ts DESC,rowid DESC LIMIT ?',(symbol,min(max(limit,1),20))).fetchall();con.close()
     return [dict(json.loads(r['payload']),recorded_at=r['ts']) for r in rows]
 
 class RevisionReview(BaseModel):
@@ -1195,3 +1196,7 @@ def attribution():
 def control_evidence_page():
     from pathlib import Path
     return HTMLResponse(Path(__file__).with_name('controls.html').read_text(encoding='utf-8'))
+
+from edge_lab_api import install as install_edge_lab
+EDGE_LAB=install_edge_lab(app,globals())
+

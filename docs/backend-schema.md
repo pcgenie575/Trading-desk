@@ -95,3 +95,11 @@ Read [Control Boundaries](../CONTROL_BOUNDARIES.md) for exact controls, migratio
 New additive tables: proposals (id PK, ts, symbol, payload, digest), risk_decisions (id PK, proposal_id, ts, phase, decision, payload), decision_consumptions (approval_id PK, unique trade_id, ts), quality_reports (symbol + context_hash PK, ts, payload). Total: 22 tables; candle_revision_reviews retains reviewed corrections. Approval consumption/position/cash commit atomically; reads do not consume approvals. Latest quality reports use persisted state keys. No automatic retention purge or SQL foreign-key enforcement is added.
 
 candle_revision_reviews: id PK, symbol, ts, quality_hash, reason and original/accepted candle JSON. Token-protected, expected-hash review accepts only isolated historical revisions with no active symbol position/order; it cannot clear a freeze automatically.
+
+## Daily edge research — 10 October 2026
+
+[Edge Research](../EDGE_RESEARCH.md) adds a private `/edge` workspace for cost attribution, fixed daily swing candidates, persistent free-history collection, development-only selection and one historical validation. This is research-only: current paper v1, its cost/risk settings and reserved future-data test remain unchanged. Historical validation and a surviving present-day universe are not proof of a future edge; passing screens cannot activate a strategy.
+
+The schema now includes `edge_lab_runs` (23 tables total). It retains the registered protocol, progress, accepted provider pages, exact dataset hash and results. The collector shares the existing credit gate and resumes saved pages after restart; denied free data stops collection. Detailed datasets/trade logs remain private. Validation: 55 backend tests and Edge Research UI logic checks; the new Edge Research desktop layout and live cost/progress display were inspected in Chrome. Comprehensive mobile/accessibility acceptance remains outstanding.
+
+

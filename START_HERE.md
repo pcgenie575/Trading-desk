@@ -23,6 +23,7 @@ If you see `ERR_INVALID_AUTH_CREDENTIALS`, try Chrome Incognito or Edge InPrivat
 | [Dashboard](https://tcr.161-33-69-185.sslip.io/) | Account equity, positions, audit feed and controls |
 | [Analyst Brain](https://tcr.161-33-69-185.sslip.io/analyst) | Trend tools, approved lessons, paper experience and analysis history |
 | [Research Lab & Knowledge](https://tcr.161-33-69-185.sslip.io/research) | Lessons, revisions, experiments and weekly decisions |
+| [Edge Research](https://tcr.161-33-69-185.sslip.io/edge) | Cost diagnosis, daily history progress and fixed strategy tests |
 | [Health check](https://tcr.161-33-69-185.sslip.io/healthz) | Minimal public service health; expected status is `ok` |
 | [Project repository](https://github.com/pcgenie575/Trading-desk) | Source code, tests and documentation |
 | [Oracle server](https://cloud.oracle.com/compute/instances/ocid1.instance.oc1.ap-melbourne-1.anwwkljr3psanaictrfbe3wocswuodjyqu2ur3nf4bz4bdhg5fb6d3kuoigq?region=ap-melbourne-1) | VM management; Oracle sign-in required |
@@ -79,3 +80,4 @@ The six remaining agents now have role-specific diagnostics, approved assigned l
 [Open Decision Evidence](https://tcr.161-33-69-185.sslip.io/controls). New proposals carry durable single-use signed approvals; execution rechecks risk and the validated opening. Individual risk checks and raw proposal/fill evidence are retained. Session-aware quality gates block missing/stale entries and quarantine suspect prices. Existing signal/exit formulas, numeric limits and the reserved research protocol remain fixed, but stricter gates can prevent entries. New closed-trade attribution preserves regime and decision provenance; missing legacy evidence stays unknown.
 
 Read [Control Boundaries](CONTROL_BOUNDARIES.md) for exact controls, migration, recovery and limitations. Unsigned legacy pending buys are cancelled with their original payload retained in audit; existing positions and exit queues remain. Validation: 47 backend tests and UI logic checks; live visual review remains incomplete.
+

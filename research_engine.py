@@ -31,14 +31,14 @@ def entry_signal(window,entry):
     trend=sma(c,50);prior_trend=sma(c[:-1],50);ma=sma(c,20)
     return c[-1]>trend and trend>prior_trend and window[-2]['low']<=sma(c[:-1],20) and c[-1]>ma and c[-1]>c[-2]
 
-def simulate(bars,start,entry,exit_style):
+def simulate(bars,start,entry,exit_style,cost_model=COSTS):
     cash=5000.;pos=None;pending=None;trades=[];curve=[];peak=cash;dd=0;invested=0;costs=0
     def sell(raw,qty,bar,reason):
         nonlocal cash,pos,costs
-        f=fill(raw,qty,'sell');cash+=f['cash'];pos['proceeds']+=f['cash'];pos['costs']+=f['total_cost'];costs+=f['total_cost'];pos['remaining']-=qty
+        f=fill(raw,qty,'sell',cost_model);cash+=f['cash'];pos['proceeds']+=f['cash'];pos['costs']+=f['total_cost'];costs+=f['total_cost'];pos['remaining']-=qty
         pos['exits'].append(dict(time=bar['datetime'],qty=qty,price=f['price'],reason=reason,costs=f['total_cost']))
         if pos['remaining']<=1e-9:
-            pnl=pos['proceeds']-pos['cost'];trades.append(dict(entry_time=pos['time'],exit_time=bar['datetime'],pnl=pnl,r=pnl/pos['risk'],costs=pos['costs'],exits=pos['exits']));pos=None
+            pnl=pos['proceeds']-pos['cost'];trades.append(dict(entry_time=pos['time'],exit_time=bar['datetime'],pnl=pnl,r=pnl/pos['risk'],risk=pos['risk'],costs=pos['costs'],exits=pos['exits']));pos=None
     for i in range(start,len(bars)):
         bar=bars[i]
         # Signals are determined on earlier completed candles, filled at this bar's open.
@@ -46,7 +46,7 @@ def simulate(bars,start,entry,exit_style):
             action=pending;pending=None
             if action['side']=='sell' and pos:sell(min(bar['open'],pos['stop']) if bar['open']<pos['stop'] else bar['open'],pos['remaining'],bar,action['reason'])
             elif action['side']=='buy' and pos is None:
-                f=sized_entry(bar['open'],action['stop'],cash)
+                f=sized_entry(bar['open'],action['stop'],cash,costs=cost_model)
                 if f:
                     cash-=f['cash'];costs+=f['total_cost'];pos=dict(qty=f['qty'],remaining=f['qty'],stop=action['stop'],price=f['price'],risk=f['planned_loss'],cost=f['cash'],proceeds=0,costs=f['total_cost'],time=bar['datetime'],index=i,partial=False,exits=[])
         if pos:
@@ -83,3 +83,5 @@ def compare(bars,split):
             base=benchmark(bars,split,500);later['minus_passive_pnl']=later['net_pnl']-base['net_pnl']
             results.append(dict(development=development,later_period=later))
     return dict(protocol=PROTOCOL,split_time=bars[split]['datetime'],variants=results,benchmark_500=benchmark(bars,split,500),benchmark_full_capital=benchmark(bars,split,5000),edge_validated=False,limitations=['Delayed 4-hour OHLC reconstruction (signal candle +4h15m before eligible opening); no quotes, dividends, taxes, corporate-action validation or intrabar path.','Predeclared variants do not prove an edge. Later data may already be known outside this lab. Reused periods are explicitly labeled.','Single instrument, one position; no portfolio correlation backtest. Partial and alternate exits are research only.'])
+
+

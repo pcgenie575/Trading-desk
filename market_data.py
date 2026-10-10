@@ -67,3 +67,20 @@ class TwelveDataAdapter:
             if opened.astimezone(timezone.utc)+timedelta(hours=4, minutes=15) <= now:
                 completed.append(bar)
         return sorted(completed,key=lambda b:b["datetime"])
+
+    def historical_daily(self,symbol,start,end):
+        """One budgeted request; explicit split adjustment and bounded dates."""
+        if not self.api_key:raise MarketDataError('Daily history key is not configured.')
+        params={'symbol':symbol,'interval':'1day','start_date':start,'end_date':end+' 23:59:59','timezone':'America/New_York','adjust':'splits','apikey':self.api_key}
+        try:
+            with urlopen(Request(self.BASE+'?'+urlencode(params),headers={'User-Agent':'TradingControlRoom/2.0'}),timeout=30) as r:payload=json.loads(r.read())
+        except Exception as e:raise MarketDataError('Daily request failed ('+type(e).__name__+')')
+        if payload.get('status')=='error' or 'values' not in payload:
+            raise MarketDataError(str(payload.get('message','Daily history unavailable')).replace(self.api_key,'[redacted]'))
+        meta=payload.get('meta',{})
+        if meta.get('symbol')!=symbol or meta.get('currency')!='USD' or meta.get('interval')!='1day' or meta.get('exchange') not in ('NASDAQ','NYSE','NYSE Arca','NYSE MKT','AMEX','CBOE','BATS'):
+            raise MarketDataError('Daily response identity or denomination mismatch.')
+        bars=sorted([dict(datetime=x['datetime'],**{k:float(x.get(k) or 0) for k in ('open','high','low','close','volume')}) for x in payload['values']],key=lambda b:b['datetime'])
+        from daily_research import validate_daily
+        validate_daily(bars,start,end)
+        return {'bars':bars,'meta':meta,'adjustment_requested':'splits','source':'Twelve Data free daily time_series','requested_start':start,'requested_end':end}

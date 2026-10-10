@@ -69,3 +69,11 @@ The six remaining agents now have role-specific diagnostics, approved assigned l
 [Open Decision Evidence](https://tcr.161-33-69-185.sslip.io/controls). New proposals carry durable single-use signed approvals; execution rechecks risk and the validated opening. Individual risk checks and raw proposal/fill evidence are retained. Session-aware quality gates block missing/stale entries and quarantine suspect prices. Existing signal/exit formulas, numeric limits and the reserved research protocol remain fixed, but stricter gates can prevent entries. New closed-trade attribution preserves regime and decision provenance; missing legacy evidence stays unknown.
 
 Read [Control Boundaries](../CONTROL_BOUNDARIES.md) for exact controls, migration, recovery and limitations. Unsigned legacy pending buys are cancelled with their original payload retained in audit; existing positions and exit queues remain. Validation: 47 backend tests and UI logic checks; live visual review remains incomplete.
+
+## Daily edge research release
+
+The [Edge Research guide](../EDGE_RESEARCH.md) describes the recorded cost diagnosis, fixed daily candidates, free-history collection, historical-validation limits and promotion screens. The separate /edge page preserves operational v1 and its reserved forward plan. The schema now has 23 tables including edge_lab_runs; raw research pages remain private. 55 backend tests passed before publication; see the guide for dated cloud acceptance evidence.
+
+
+
+

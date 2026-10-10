@@ -25,6 +25,10 @@ Risk gates enforce $500 all-in position cost/$25 planned loss, three open positi
 
 The dashboard has clickable agents, audit-driven links, coverage, swing analytics, a weekly trade calendar, saved plans/reviews, playbook and scenario calculator. The lab holds revisioned lessons and fixed eight-variant comparisons with passive baselines, weekly decision reports and a reserved future-data test. Approved notes are reference context; they do not train a model or change rules. Pullback and trailing/time/partial exits remain research only.
 
+## Cost diagnosis and daily research
+
+[Open Edge Research](https://tcr.161-33-69-185.sslip.io/edge) for recorded cost-only reruns and a fixed daily swing protocol. Daily history is collected using the existing free-data budget; no production rules are switched. [Read the research plan, cost findings and promotion criteria](EDGE_RESEARCH.md).
+
 ## Analyst Brain
 
 [Open the Brain](https://tcr.161-33-69-185.sslip.io/analyst) to inspect trend alignment/slope, SPY context, relative strength, ATR/RSI, volume, structure and extension. It combines approved lessons with immutable analysis snapshots and closed-paper-trade experience. No model is fine-tuned and no lesson executes a trade. These descriptive tools leave active entries, exits, risk caps and the reserved forward protocol unchanged. [Read the practical guide](ANALYST_BRAIN.md).
@@ -54,3 +58,4 @@ The six remaining agents now have role-specific diagnostics, approved assigned l
 [Open Decision Evidence](https://tcr.161-33-69-185.sslip.io/controls). New proposals carry durable single-use signed approvals; execution rechecks risk and the validated opening. Individual risk checks and raw proposal/fill evidence are retained. Session-aware quality gates block missing/stale entries and quarantine suspect prices. Existing signal/exit formulas, numeric limits and the reserved research protocol remain fixed, but stricter gates can prevent entries. New closed-trade attribution preserves regime and decision provenance; missing legacy evidence stays unknown.
 
 Read [Control Boundaries](CONTROL_BOUNDARIES.md) for exact controls, migration, recovery and limitations. Unsigned legacy pending buys are cancelled with their original payload retained in audit; existing positions and exit queues remain. Validation: 47 backend tests and UI logic checks; live visual review remains incomplete.
+
