@@ -1,8 +1,8 @@
 # Trading Desk Implementation Plan
 
-Version 1.0 | 10 October 2026 | Owner: Trading Desk
+Version 1.1 | 10 October 2026 | Owner: Trading Desk
 
-Baseline: [source commit 48149bd](https://github.com/pcgenie575/Trading-desk/tree/48149bd7ba5f41f4d2472c97b0db81cf87bf914a), checked against the retained source. Deployment evidence is the verification recorded on 10 October 2026 Perth time. This documentation update does not change trading rules or certify today’s live health. “Proposed” items require implementation and acceptance.
+Baseline: [source commit a8e8ed0](https://github.com/pcgenie575/Trading-desk/tree/a8e8ed0f6a3a04bc8d63613fdf75397a4099729d), checked against the retained source. Deployment evidence is the verification recorded on 10 October 2026 Perth time. This documentation update does not change trading rules or certify today’s live health. “Proposed” items require implementation and acceptance.
 
 ## Purpose and baseline
 
@@ -19,7 +19,11 @@ This is a handover and evidence-led improvement plan. Completed phases describe 
 | 5. Execution/exposure | Later eligible fills, estimated costs, gap handling, cost-aware sizing, sector/correlation limits | Queued-order persistence, no fill before decision, gap/cash and correlation/fallback tests |
 | 6. Research/review | Eight fixed comparisons, passive baselines, all results retained, weekly decisions and forward plan | No later-data leakage into development, partial-exit accounting, dedupe/reuse, forward progress and report persistence |
 
-The latest baseline recorded 20 passing backend tests plus JavaScript checks. HTTPS, scheduler, restart persistence, preserved entries and ledger reconciliation were verified. Browser visual/mobile/accessibility acceptance remains outstanding. There were zero closed operational paper trades at that recorded check; the initial historical comparison’s losses are separate from actual paper ledger results.
+The latest baseline recorded 26 passing backend tests plus JavaScript checks. HTTPS, scheduler, restart persistence, preserved entries and ledger reconciliation were verified. Browser visual/mobile/accessibility acceptance remains outstanding. There were zero closed operational paper trades at that recorded check; the initial historical comparison’s losses are separate from actual paper ledger results.
+
+## Completed — Analyst Brain release
+
+Descriptive Analyst tools are now implemented in analyst-tools-v1 and validated with 26 backend tests plus UI logic checks. Any promotion of trend/relative-strength/volume filters into entries still belongs to a new recorded protocol and separate validation period; the existing reserved forward test stays frozen. See [Analyst Brain guide](../ANALYST_BRAIN.md) for calculations, use and limitations.
 
 ## Phase 7 — Complete usability acceptance (proposed)
 
@@ -60,7 +64,3 @@ For rollback, preserve the database and current evidence; do not delete position
 ## Documentation maintenance
 
 Update these six documents when behaviour changes. Record the source commit, local checks, deployment evidence, research status and unresolved issues. Keep the root README and [documentation index](README.md) current. Source code is authoritative when an older feature note differs; never present historical health evidence as a live status guarantee.
-
-## Analyst tools addendum — 10 October 2026
-
-Descriptive Analyst tools are now implemented in analyst-tools-v1 and validated with 26 backend tests plus UI logic checks. Any promotion of trend/relative-strength/volume filters into entries still belongs to a new recorded protocol and separate validation period; the existing reserved forward test stays frozen.

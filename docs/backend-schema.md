@@ -1,8 +1,8 @@
 # Trading Desk Backend Schema
 
-Version 1.0 | 10 October 2026 | Owner: Trading Desk
+Version 1.1 | 10 October 2026 | Owner: Trading Desk
 
-Baseline: [source commit 48149bd](https://github.com/pcgenie575/Trading-desk/tree/48149bd7ba5f41f4d2472c97b0db81cf87bf914a), checked against the retained source. Deployment evidence is the verification recorded on 10 October 2026 Perth time. This documentation update does not change trading rules or certify today’s live health. “Proposed” items require implementation and acceptance.
+Baseline: [source commit a8e8ed0](https://github.com/pcgenie575/Trading-desk/tree/a8e8ed0f6a3a04bc8d63613fdf75397a4099729d), checked against the retained source. Deployment evidence is the verification recorded on 10 October 2026 Perth time. This documentation update does not change trading rules or certify today’s live health. “Proposed” items require implementation and acceptance.
 
 ## Status and persistence
 
@@ -68,6 +68,10 @@ forward_plans: id PK, symbol, registered_at, frozen protocol JSON, status and op
 
 weekly_reports: week PK, ts and JSON payload. The week key is the Monday date of the completed New York week. A report is saved once for the latest completed week; it is not automatically a historical backfill or continuously recalculated after later review edits. It stores sample/expectancy/cost/adherence/failure/drawdown evidence, decision and reasons. Unavailable values are null.
 
+## Analyst analysis snapshots
+
+analyst_reports adds symbol, bar_time, version, context_hash, created_at and JSON payload; primary key is symbol + bar_time + version + context_hash. Input candles, market context and knowledge versions identify each report. INSERT OR IGNORE preserves an existing snapshot. New trade candidate JSON also carries its analysis. History reads are bounded; persistence has no automatic purge. See [Analyst Brain guide](../ANALYST_BRAIN.md) for calculations, use and limitations.
+
 ## Transactions, growth and recovery
 
 Trading/knowledge operations use a process-wide reentrant lock and BEGIN IMMEDIATE with rollback on failure. Manual research calculation runs outside the lock after durable registration; results are committed afterwards. Forward research runs in the scheduler’s serialised cycle. This requires a single application process.
@@ -75,7 +79,3 @@ Trading/knowledge operations use a process-wide reentrant lock and BEGIN IMMEDIA
 The API caps audit reads at 1000 messages, research summaries at 20 per page and weekly reports at 52; these read limits do not delete stored history. Operational candles/audit/equity/history can keep growing. Summary responses omit large curves/trade logs; one-run exports retain them. No general retention purge, export-import restore workflow or encrypted off-server destination is implemented.
 
 Use the online SQLite backup API for consistent backups, validate integrity before restore, and stop the application before replacing its DB. Never commit real ledger/backups, credentials or private reviews to GitHub. See [technical requirements](technical-requirements.md) for access and recovery constraints.
-
-## Analyst tools addendum — 10 October 2026
-
-analyst_reports adds symbol, bar_time, version, context_hash, created_at and JSON payload; primary key is symbol + bar_time + version + context_hash. Input candles, market context and knowledge versions identify each report. INSERT OR IGNORE preserves an existing snapshot. New trade candidate JSON also carries its analysis. History reads are bounded; persistence has no automatic purge.

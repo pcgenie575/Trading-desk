@@ -21,11 +21,17 @@ If you see `ERR_INVALID_AUTH_CREDENTIALS`, try Chrome Incognito or Edge InPrivat
 | Link | Purpose |
 | --- | --- |
 | [Dashboard](https://tcr.161-33-69-185.sslip.io/) | Account equity, positions, audit feed and controls |
+| [Analyst Brain](https://tcr.161-33-69-185.sslip.io/analyst) | Trend tools, approved lessons, paper experience and analysis history |
+| [Research Lab & Knowledge](https://tcr.161-33-69-185.sslip.io/research) | Lessons, revisions, experiments and weekly decisions |
 | [Health check](https://tcr.161-33-69-185.sslip.io/healthz) | Minimal public service health; expected status is `ok` |
 | [Project repository](https://github.com/pcgenie575/Trading-desk) | Source code, tests and documentation |
 | [Oracle server](https://cloud.oracle.com/compute/instances/ocid1.instance.oc1.ap-melbourne-1.anwwkljr3psanaictrfbe3wocswuodjyqu2ur3nf4bz4bdhg5fb6d3kuoigq?region=ap-melbourne-1) | VM management; Oracle sign-in required |
 | [Twelve Data account](https://twelvedata.com/account) | Market-data account; sign-in required |
 | [Deployment and recovery guide](ORACLE_DEPLOYMENT.md) | Server configuration, backups and recovery |
+
+## Inspect the Analyst
+
+Open **Analyst Brain**, select a US instrument and read the candle timestamp before the indicators. Check supported conditions and missing-data flags, then inspect approved lessons and saved history. A high condition count is not a win probability. The same dashboard login applies; viewing needs no control token and consumes no extra provider credits. See [Analyst Brain guide](ANALYST_BRAIN.md).
 
 ## Check operation
 
@@ -63,7 +69,3 @@ The Research Lab now includes fixed strategy/exit comparisons, passive benchmark
 ## Understand the whole Trading Desk
 
 Start with the [six-document guide and glossary](docs/README.md). It covers Product Requirements, App Flow, Technical Requirements, Backend Schema, Design Brief and Implementation Plan, with dated evidence and a distinction between deployed features, research and proposed work.
-
-## Analyst tools addendum — 10 October 2026
-
-[Open Analyst Brain](https://tcr.161-33-69-185.sslip.io/analyst) to inspect the Analyst’s tools, approved knowledge and recorded experience. [Read the Analyst guide](ANALYST_BRAIN.md).

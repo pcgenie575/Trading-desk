@@ -1,8 +1,8 @@
 # Trading Desk Product Requirements
 
-Version 1.0 | 10 October 2026 | Owner: Trading Desk
+Version 1.1 | 10 October 2026 | Owner: Trading Desk
 
-Baseline: [source commit 48149bd](https://github.com/pcgenie575/Trading-desk/tree/48149bd7ba5f41f4d2472c97b0db81cf87bf914a), checked against the retained source. Deployment evidence is the verification recorded on 10 October 2026 Perth time. This documentation update does not change trading rules or certify today’s live health. “Proposed” items require implementation and acceptance.
+Baseline: [source commit a8e8ed0](https://github.com/pcgenie575/Trading-desk/tree/a8e8ed0f6a3a04bc8d63613fdf75397a4099729d), checked against the retained source. Deployment evidence is the verification recorded on 10 October 2026 Perth time. This documentation update does not change trading rules or certify today’s live health. “Proposed” items require implementation and acceptance.
 
 ## Purpose and audience
 
@@ -42,12 +42,12 @@ Measure net results after recorded estimated costs, drawdown, eligible R expecta
 
 The recorded initial SPY comparison used 499 free candles; all eight variants had negative later-period net P/L and lagged the same-symbol passive baseline. That is a dated research finding, not a forecast. Alternative entries/exits remain research only.
 
+## Analyst knowledge and analysis
+
+The Analyst Brain page adds descriptive trend, market, volatility/momentum, relative-strength and volume evidence, approved lessons and recorded outcomes. Active entries/exits and reserved research are unchanged; no prediction or autonomous rule-learning claim is made. See [Analyst Brain guide](../ANALYST_BRAIN.md) for calculations, use and limitations.
+
 ## Acceptance and next decisions
 
-The baseline recorded 20 passing backend tests, UI logic checks and authenticated deployment/restart/ledger verification. Process health does not establish freshness or profitability. Before any strategy promotion, require an explicit versioned change, reserved-period evidence, realistic execution review and a tested rollback. No promotion or real-money path is authorised by these documents.
+The baseline recorded 26 passing backend tests, UI logic checks and authenticated deployment/restart/ledger verification. Process health does not establish freshness or profitability. Before any strategy promotion, require an explicit versioned change, reserved-period evidence, realistic execution review and a tested rollback. No promotion or real-money path is authorised by these documents.
 
 Proposed priorities are an encrypted automatic off-server backup with restore rehearsal, browser/mobile/accessibility review, and evidence-led improvements after the forward sample. Continue within free-service constraints. See [implementation plan](implementation-plan.md).
-
-## Analyst tools addendum — 10 October 2026
-
-The Analyst Brain page adds descriptive trend, market, volatility/momentum, relative-strength and volume evidence, approved lessons and recorded outcomes. Active entries/exits and reserved research are unchanged; no prediction or autonomous rule-learning claim is made.

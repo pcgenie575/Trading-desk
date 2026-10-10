@@ -8,6 +8,16 @@ The Analyst combines three layers: coded analysis tools, an approved knowledge l
 
 Each new candle records a TREND_ANALYSIS audit event and a persistent analysis snapshot. New candidate/trade context also includes the report. Snapshots preserve their exact lesson versions and market/data evidence. Startup seeds reports from saved data; no synthetic prices enter the live ledger. The page previews current cached data/approved lessons without writing orders, spending provider credits or changing risk settings. It also shows the latest up to 100 closed paper trades across the desk, with eligible R average and loss streak. Those outcomes do not trigger automatic rule changes.
 
+## Use the page
+
+1. Open the Brain with your existing dashboard login and select an instrument. Check its New York candle timestamp, saved-bar count and data status.
+2. Read the trend chart and SPY context, then the supported/available conditions. Missing evidence stays unavailable; a count is not a trading recommendation.
+3. Read the flags for lagging benchmark alignment, incomplete volume, extension and stop distance. RSI momentum and performance relative to SPY answer different questions.
+4. Inspect approved lesson titles, versions and evidence. Use Research Lab to draft or revise a custom lesson, assign Analyst and approve it with supporting evidence. No rule changes follow automatically.
+5. Load saved history to inspect the context recorded at that time. The current preview can use newer approved lessons; it does not replace earlier snapshots. Instrument changes clear selected history; refresh preserves an opened list.
+
+The page refreshes visible cached analysis every 60 seconds. This is separate from the five-minute scheduler and delayed four-hour market data. No control token is needed for viewing; writing knowledge records uses the separate token.
+
 ## The tools
 
 | Tool | Calculation | Meaning and limitation |
@@ -33,6 +43,10 @@ GET /analyst serves the private page. GET /analyst-analysis previews the 16 pape
 analyst_reports is keyed by symbol, bar_time, tools version and context hash; created_at and JSON payload preserve evidence. The hash includes input candles, market context and lesson versions so distinct contexts cannot silently overwrite earlier reports. History reads are bounded; stored reports currently have no automatic retention purge and are included in normal SQLite backups.
 
 Main dashboard navigation and the Analyst card link to the Brain page; Research Lab links back to it. Missing data is shown explicitly. Current limitations include free delayed data, no fundamentals/earnings/news, incomplete volume, single-proxy market context and no calibrated predictive model.
+
+## Recorded deployment evidence
+
+Source release: [a8e8ed0](https://github.com/pcgenie575/Trading-desk/tree/a8e8ed0f6a3a04bc8d63613fdf75397a4099729d). Verification on 10 October 2026 Perth time confirmed authenticated HTTPS for the page and APIs, a running scheduler, 16 instrument previews, four approved Analyst lessons and stored SPY analysis. After a container restart, snapshots and original entries persisted, cash reconciled, and the existing reserved research registration/protocol remained intact. Viewing makes zero extra provider requests. There were zero closed operational paper trades at that check; experience cannot establish an edge without outcomes. This is dated evidence, not a current live-status claim.
 
 ## Validation and next step
 

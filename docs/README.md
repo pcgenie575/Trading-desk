@@ -2,7 +2,7 @@
 
 The same six-document structure used for PC Genie, adapted to the deployed paper Trading Desk. Start with Product Requirements and App Flow; use the other documents for maintenance and future decisions.
 
-**[Open the dashboard](https://tcr.161-33-69-185.sslip.io/)** · **[Open Research Lab & Knowledge](https://tcr.161-33-69-185.sslip.io/research)** · **[Login and access help](../START_HERE.md)**
+**[Open the dashboard](https://tcr.161-33-69-185.sslip.io/)** · **[Analyst Brain](https://tcr.161-33-69-185.sslip.io/analyst)** · **[Open Research Lab & Knowledge](https://tcr.161-33-69-185.sslip.io/research)** · **[Login and access help](../START_HERE.md)**
 
 ## The six documents
 
@@ -17,7 +17,7 @@ The same six-document structure used for PC Genie, adapted to the deployed paper
 
 ## The desk in plain English
 
-Market Data collects validated completed candles. Analyst applies fixed entry rules. Risk & Compliance checks sizing, cash, overlapping exposure and circuit breakers. Paper Trader queues and fills simulated orders with estimated costs. Logger preserves the plan and audit. Performance Reviewer evaluates results and experiments. Supervisor oversees freezes and recovery. These are deterministic software roles in one application, not independently trained AI models.
+Market Data collects validated completed candles. Analyst applies fixed entry rules and records descriptive trend analysis with approved lesson versions. Risk & Compliance checks sizing, cash, overlapping exposure and circuit breakers. Paper Trader queues and fills simulated orders with estimated costs. Logger preserves the plan and audit. Performance Reviewer evaluates results and experiments. Supervisor oversees freezes and recovery. These are deterministic software roles in one application, not independently trained AI models.
 
 The active entry remains Trend Breakout v1. Pullbacks and trailing/time/partial exits are research comparisons; none is activated by winning a backtest. Approved knowledge lessons become reference guidance and versioned context, not executable trading instructions. There is no broker connection or real-money order path.
 
@@ -28,6 +28,10 @@ The active entry remains Trend Breakout v1. Pullbacks and trailing/time/partial 
 | Paper trade | Simulated execution and account record; no broker order |
 | Candle | A four-hour OHLC price bar, used only after completion plus provider allowance |
 | OHLC | Opening, highest, lowest and closing price within a bar |
+| ATR | Gap-aware price-range measure of volatility; not direction |
+| RSI | Momentum based on this instrument’s gains/losses; not return relative to SPY |
+| Relative strength | Instrument return minus SPY return over matched candle timestamps |
+| Analysis snapshot | Stored report with exact data context and approved lesson versions |
 | SMA | Simple moving average of recent closing prices |
 | Basis point / bps | 0.01%; 5 bps equals 0.05% |
 | Planned loss | Entry-to-stop loss including modeled costs; gaps can lose more |
@@ -40,12 +44,13 @@ The active entry remains Trend Breakout v1. Pullbacks and trailing/time/partial 
 
 ## Evidence and currency
 
-Package version 1.0, 10 October 2026. Baseline source: [48149bd](https://github.com/pcgenie575/Trading-desk/tree/48149bd7ba5f41f4d2472c97b0db81cf87bf914a). The main application and strategy/execution/research sources were checked against repository blob hashes before writing. Earlier deployment verification recorded 20 passing backend tests, authenticated HTTPS, scheduler health, restart persistence and ledger reconciliation. UI logic checks passed; browser visual/accessibility review remained unavailable.
+Package version 1.1, 10 October 2026. Baseline source: [a8e8ed0](https://github.com/pcgenie575/Trading-desk/tree/a8e8ed0f6a3a04bc8d63613fdf75397a4099729d). The main application and strategy/execution/research sources were checked against repository blob hashes before writing. Earlier deployment verification recorded 26 passing backend tests, authenticated HTTPS, scheduler health, restart persistence and ledger reconciliation. UI logic checks passed; browser visual/accessibility review remained unavailable.
 
 The recorded first SPY comparison used 499 free candles and all eight later-period results were negative after modeled costs and below passive. The reserved forward plan was collecting 0/120 future candles at verification. These are dated observations, not today’s live status or a forecast. Check the private dashboard for current state and freshness. Historical data, source/data licensing, modeled fees and incomplete real-world execution assumptions still limit interpretation.
 
 ## Supplemental guides
 
+- [Analyst Brain](../ANALYST_BRAIN.md): tools, knowledge, memory, practical use and limitations.
 - [Start Here](../START_HERE.md): links and private login help.
 - [Research Lab guide](../RESEARCH_LAB.md): comparison protocol, costs, overlap gates and forward/weekly details.
 - [Swing journal guide](../SWING_JOURNAL.md): review/calculation conventions and exports.
@@ -54,7 +59,3 @@ The recorded first SPY comparison used 499 free candles and all eight later-peri
 - [Earlier Oracle deployment notes](../ORACLE_DEPLOYMENT.md): setup/recovery background; its dated status/IP/shape guidance is historical. Use current console settings and these technical requirements when they differ.
 
 Never place passwords, API keys, control tokens, SSH keys or operational database exports in these documents or GitHub.
-
-## Analyst tools addendum — 10 October 2026
-
-[Analyst Brain guide](../ANALYST_BRAIN.md) documents the analyst-tools-v1 addendum: descriptive trend tools, knowledge/experience and analysis history. Its 26-test validation extends the earlier 20-test baseline; browser visual review remains outstanding.

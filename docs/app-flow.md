@@ -1,12 +1,12 @@
 # Trading Desk App Flow
 
-Version 1.0 | 10 October 2026 | Owner: Trading Desk
+Version 1.1 | 10 October 2026 | Owner: Trading Desk
 
-Baseline: [source commit 48149bd](https://github.com/pcgenie575/Trading-desk/tree/48149bd7ba5f41f4d2472c97b0db81cf87bf914a), checked against the retained source. Deployment evidence is the verification recorded on 10 October 2026 Perth time. This documentation update does not change trading rules or certify today’s live health. “Proposed” items require implementation and acceptance.
+Baseline: [source commit a8e8ed0](https://github.com/pcgenie575/Trading-desk/tree/a8e8ed0f6a3a04bc8d63613fdf75397a4099729d), checked against the retained source. Deployment evidence is the verification recorded on 10 October 2026 Perth time. This documentation update does not change trading rules or certify today’s live health. “Proposed” items require implementation and acceptance.
 
 ## Navigation and access
 
-Open the [dashboard](https://tcr.161-33-69-185.sslip.io/) and use the existing private dashboard login. No public registration flow exists. Navigation links lead to agents, coverage, journal, playbook, learning library, audit feed and [Research Lab & Knowledge](https://tcr.161-33-69-185.sslip.io/research). Market timestamps use New York time; the trade calendar defaults to Perth and offers New York. Calendar weeks run Monday–Sunday. Weekly decision reports use completed New York weeks.
+Open the [dashboard](https://tcr.161-33-69-185.sslip.io/) and use the existing private dashboard login. No public registration flow exists. Navigation links lead to agents, coverage, journal, playbook, learning library, audit feed, [Analyst Brain](https://tcr.161-33-69-185.sslip.io/analyst) and [Research Lab & Knowledge](https://tcr.161-33-69-185.sslip.io/research). Market timestamps use New York time; the trade calendar defaults to Perth and offers New York. Calendar weeks run Monday–Sunday. Weekly decision reports use completed New York weeks.
 
 A separate control token is requested when changing desk controls, trade reviews or knowledge records, or starting research. Keep it out of URLs, shared notes and GitHub. A failed login is an access problem; it does not by itself prove the server is offline.
 
@@ -15,6 +15,9 @@ A separate control token is requested when changing desk controls, trade reviews
 ```mermaid
 flowchart TD
     M[Market Data: completed free candles] --> A[Analyst: fixed breakout signal]
+    K[Approved versioned lessons] -. Reference context .-> A
+    A --> B[Trend tools and saved analysis]
+    B --> L
     A --> R[Risk & Compliance: gates]
     R -->|Reject| L[Logger: reason and evidence]
     R -->|Approve| Q[Persistent queued order]
@@ -46,6 +49,10 @@ Existing positions receive exit priority. A touched protective stop uses the low
 5. Run a fixed comparison from saved free candles or a source-labelled JSON import. Every variant is retained. Same data/protocol returns its original run; overlapping historical test dates are labelled reused. Read passive comparisons and export results/frozen data.
 6. Read weekly decisions and reserved forward-plan progress. These recommend review; they do not automatically change strategies. Freeze/resume are explicit controls, and resume can be rejected while a breaker remains active.
 
+## Inspect the Analyst Brain
+
+Select Analyst → Open Analyst Brain → choose a US instrument → inspect chart, conditions, flags, approved lessons and paper experience → load saved history. Page refresh reads cached data and costs no provider requests. Candidate analysis carries an immutable report; custom lessons remain reference context. See [Analyst Brain guide](../ANALYST_BRAIN.md) for calculations, use and limitations.
+
 ## States and failure handling
 
 | State | Meaning | Operator response |
@@ -61,7 +68,3 @@ Existing positions receive exit priority. A touched protective stop uses the low
 | FAILED / INTERRUPTED experiment | Trial did not complete | Keep history; investigate rather than deleting a losing/failed attempt |
 
 See [technical requirements](technical-requirements.md) for access/API rules and [schema](backend-schema.md) for persistent state.
-
-## Analyst tools addendum — 10 October 2026
-
-Select Analyst → Open Analyst Brain → choose a US instrument → inspect chart, conditions, flags, approved lessons and paper experience → load saved history. Page refresh reads cached data and costs no provider requests. Candidate analysis carries an immutable report; custom lessons remain reference context.

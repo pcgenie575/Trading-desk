@@ -1,8 +1,8 @@
 # Trading Desk Design Brief
 
-Version 1.0 | 10 October 2026 | Owner: Trading Desk
+Version 1.1 | 10 October 2026 | Owner: Trading Desk
 
-Baseline: [source commit 48149bd](https://github.com/pcgenie575/Trading-desk/tree/48149bd7ba5f41f4d2472c97b0db81cf87bf914a), checked against the retained source. Deployment evidence is the verification recorded on 10 October 2026 Perth time. This documentation update does not change trading rules or certify today’s live health. “Proposed” items require implementation and acceptance.
+Baseline: [source commit a8e8ed0](https://github.com/pcgenie575/Trading-desk/tree/a8e8ed0f6a3a04bc8d63613fdf75397a4099729d), checked against the retained source. Deployment evidence is the verification recorded on 10 October 2026 Perth time. This documentation update does not change trading rules or certify today’s live health. “Proposed” items require implementation and acceptance.
 
 ## Design objective
 
@@ -51,10 +51,10 @@ Use labelled inputs, semantic buttons, visible keyboard focus, accessible status
 
 Always distinguish recorded paper P/L from hypothetical research P/L. Use sample counts alongside expectancy/adherence. Unreviewed trades are not “compliant”. A healthy process is not the same as a fresh feed. Show reused historical periods and future collection progress. Costs are estimates, not broker tariffs; the account is USD and the FX allowance is not an actual currency return.
 
+## Analyst Brain presentation
+
+Analyst Brain adds a close/SMA20/SMA50 chart, readable evidence cards, supported/available conditions, uncertainty flags, approved lessons and historical reports. Condition counts are not win probabilities. Unknown values remain unavailable; RSI and relative return versus SPY have separate labels. Instrument changes clear the history selection; refresh preserves an opened history list. See [Analyst Brain guide](../ANALYST_BRAIN.md) for calculations, use and limitations.
+
 ## Acceptance status
 
 Recorded JavaScript checks covered agent selection, event deduplication, escaped record text, research rows/benchmarks, unavailable weekly metrics, forward progress and revision protection. Browser visual/mobile/accessibility review was not completed because preview access was unavailable. Completing that review is proposed work; this brief does not claim visual or accessibility certification.
-
-## Analyst tools addendum — 10 October 2026
-
-Analyst Brain adds a close/SMA20/SMA50 chart, readable evidence cards, supported/available conditions, uncertainty flags, approved lessons and historical reports. Condition counts are not win probabilities. Unknown values remain unavailable; RSI and relative return versus SPY have separate labels. Instrument changes clear the history selection; refresh preserves an opened history list.

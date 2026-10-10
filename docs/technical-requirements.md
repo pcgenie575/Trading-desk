@@ -1,8 +1,8 @@
 # Trading Desk Technical Requirements
 
-Version 1.0 | 10 October 2026 | Owner: Trading Desk
+Version 1.1 | 10 October 2026 | Owner: Trading Desk
 
-Baseline: [source commit 48149bd](https://github.com/pcgenie575/Trading-desk/tree/48149bd7ba5f41f4d2472c97b0db81cf87bf914a), checked against the retained source. Deployment evidence is the verification recorded on 10 October 2026 Perth time. This documentation update does not change trading rules or certify today’s live health. “Proposed” items require implementation and acceptance.
+Baseline: [source commit a8e8ed0](https://github.com/pcgenie575/Trading-desk/tree/a8e8ed0f6a3a04bc8d63613fdf75397a4099729d), checked against the retained source. Deployment evidence is the verification recorded on 10 October 2026 Perth time. This documentation update does not change trading rules or certify today’s live health. “Proposed” items require implementation and acceptance.
 
 ## Baseline architecture
 
@@ -54,7 +54,12 @@ HTTPS terminates at Caddy, which manages certificates. Dashboard/API/assets requ
 | GET /experiments, /experiments/{id}, /experiments/{id}/dataset | Paginated summary or one full frozen result/data export |
 | POST /experiments, POST /backtest | Token-protected recorded research; backtest delegates to the fixed lab |
 | GET /weekly-reports, /forward-plans | Private decision history/collection progress |
+| GET /analyst, /analyst-analysis, /analyst-analysis/{symbol}/history | Private page, cached analysis preview and bounded saved snapshots; no control token for reads |
 | GET /healthz | Public minimal process/scheduler health; no ledger/credentials |
+
+## Analyst tools and read-only access
+
+analyst_tools.py supplies deterministic Wilder ATR/RSI, trend/slope, aligned relative-return, same-session volume and descriptive flags. Authenticated GET /analyst, /analyst-analysis and /analyst-analysis/{symbol}/history expose the page, read-only preview and bounded history. Startup/new candles persist reports; 26 backend tests passed for this additive release. No active strategy/research protocol change. See [Analyst Brain guide](../ANALYST_BRAIN.md) for calculations, use and limitations.
 
 ## Trading and data constraints
 
@@ -72,8 +77,4 @@ SQLite is bind-mounted from host `data` to container `/data`; rebuilding the ima
 
 Daily backups use SQLite’s online backup API and retain 14 copies on the VM. A consistent copy was also downloaded locally in verification. Automatic encrypted off-server backups remain unconfigured. Stop the application before restoring a verified DB, preserve the old copy, then validate integrity, ledger and pending orders before resuming. Do not overwrite an active ledger.
 
-Recorded validation: 20 backend tests, JavaScript interaction checks, authenticated HTTPS, scheduler health, restart persistence, preserved entry history and cash reconciliation. Browser visual/accessibility checks remain incomplete. Run tests against disposable databases only. Development dependencies include httpx for API tests; secrets are unnecessary for synthetic fixtures. Unbounded operational history, database growth, restore drills and VM resource trends need continued review; current code has no versioned migration ledger or general API rate-limit layer.
-
-## Analyst tools addendum — 10 October 2026
-
-analyst_tools.py supplies deterministic Wilder ATR/RSI, trend/slope, aligned relative-return, same-session volume and descriptive flags. Authenticated GET /analyst, /analyst-analysis and /analyst-analysis/{symbol}/history expose the page, read-only preview and bounded history. Startup/new candles persist reports; 26 backend tests passed for this additive release. No active strategy/research protocol change.
+Recorded validation: 26 backend tests, JavaScript interaction checks, authenticated HTTPS, scheduler health, restart persistence, preserved entry history and cash reconciliation. Browser visual/accessibility checks remain incomplete. Run tests against disposable databases only. Development dependencies include httpx for API tests; secrets are unnecessary for synthetic fixtures. Unbounded operational history, database growth, restore drills and VM resource trends need continued review; current code has no versioned migration ledger or general API rate-limit layer.

@@ -47,6 +47,12 @@ active checks. Clicking an agent also shows its guidance. Authenticated
 `/training` exposes the curriculum and an evidence review without writing a
 report or consuming a market-data credit.
 
+## Knowledge, tools and memory
+
+[Analyst Brain](https://tcr.161-33-69-185.sslip.io/analyst) combines the curriculum with descriptive analysis tools and recorded experience. Four of the five installed book lessons are assigned to Analyst. Only approved lessons assigned to that role appear in its context; drafts, hypotheses and experiment notes cannot execute instructions. Custom lesson changes require evidence, assignment, approval and a version check. Earlier analysis/trade snapshots retain their original lesson versions.
+
+The Brain shows trend/slope, SPY context, aligned relative returns, ATR/RSI, same-session volume and extension/structure flags from saved completed candles. New processed candles preserve reports; startup seeds saved-data reports. Viewing previews current cached context without creating orders or requesting new provider data. Experience is the most recent up to 100 closed paper trades across the desk, not a trained predictive model. See [Analyst Brain guide](ANALYST_BRAIN.md) for calculations and practical use.
+
 ## Research boundaries
 
 Thirty eligible closed trades is our initial review milestone, not a threshold
