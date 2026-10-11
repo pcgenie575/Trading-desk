@@ -765,6 +765,11 @@ def journal_ui():
     from pathlib import Path
     return Response(Path(__file__).with_name('journal-ui.js').read_text(encoding='utf-8'),media_type='application/javascript')
 
+@app.get('/activity-ui.js')
+def activity_ui():
+    from pathlib import Path
+    return Response(Path(__file__).with_name('activity-ui.js').read_text(encoding='utf-8'),media_type='application/javascript')
+
 @app.get('/research',response_class=HTMLResponse)
 def research_page():
     from pathlib import Path
