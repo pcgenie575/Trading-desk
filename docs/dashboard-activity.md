@@ -10,4 +10,4 @@ Calendar source: [official NYSE calendar and hours](https://www.nyse.com/trade/h
 
 A browser policy block prevented direct visual inspection of the live page. UI logic and authenticated delivery checks are used; visual acceptance remains outstanding.
 
-Deployment status: prepared and tested, not live. SSH to the existing VM timed out before any upload. Authenticated dashboard API remains reachable. Restore restricted administration access before deployment and authenticated asset-delivery verification.
+Deployment status: live on the existing Oracle VM, verified 12 October 2026 (Perth). Restricted SSH access was restored with the user's approval. A database backup was taken before deploying. After the service rebuild and restart, health and the scheduler were verified, authenticated HTML and activity-script delivery passed, and an unauthenticated script request returned 401. The AAPL/SPY paper positions, risk limits and forward research plans matched their pre-deployment snapshots. This deployment changes the display only; it does not generate trades or relax entry rules.
