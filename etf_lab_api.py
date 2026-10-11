@@ -9,6 +9,7 @@ from daily_research import digest
 from corporate_actions import issuer_url,parse_distributions,reconcile
 from market_data import TwelveDataAdapter
 from etf_research import run
+from etf_diagnostics import diagnose
 
 def install(app,services):
     db=services['db'];lock=services['_cycle_lock'];now=services['utcnow'];control=services['require_control'];emit=services['emit'];reserve=services['reserve_credit'];worker_lock=threading.Lock()
@@ -23,7 +24,9 @@ def install(app,services):
         with lock:
             c=db();c.execute('UPDATE edge_lab_runs SET status=?,payload=?,dataset=? WHERE id=?',(r['status'],json.dumps(r['payload']),json.dumps(r['dataset']),r['id']));c.commit();c.close()
     def summary(r):
+        diagnostics=diagnose(r['dataset'],r['payload'].get('input_checks',{}),r['protocol']['experiment'])
         r=json.loads(json.dumps(r));r.pop('dataset',None)
+        r['input_diagnostics']=diagnostics
         def prune(v):
             if isinstance(v,dict):
                 for k in ('trade_log','risk_decisions','cashflows','equity_curve'):v.pop(k,None)

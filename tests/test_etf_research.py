@@ -95,6 +95,9 @@ class ETFWorkflow(base.Operations):
                 h={'X-Control-Token':'test-control-token'};first=client.post('/etf-lab/start',headers=h).json();second=client.post('/etf-lab/start',headers=h).json()
                 self.assertEqual(first['id'],second['id']);self.assertEqual(first['payload']['provider_requests'],0)
                 self.assertEqual(first['dataset'] if 'dataset' in first else None,None)
+                diagnostic=client.get('/etf-lab').json()['runs'][0]['input_diagnostics']
+                self.assertTrue(diagnostic['read_only']);self.assertEqual(diagnostic['extra_provider_requests'],0)
+                self.assertTrue(all(not r['gate_passed'] for r in diagnostic['rows']))
                 self.assertEqual(client.post('/etf-lab/'+first['id']+'/retry-data',headers=h).status_code,409)
                 self.assertFalse(client.get('/etf-lab').json()['activation_allowed'])
                 room.init_db();self.assertEqual(client.get('/etf-lab/'+first['id']).json()['protocol'],first['protocol'])

@@ -1,5 +1,7 @@
 # ETF evidence workflow
 
+[Improvement priorities and input diagnostics](docs/edge-improvement-roadmap.md) explain what is needed before this desk can claim a validated edge. The ETF page now groups saved dividend-adjustment discrepancies by year and lists next evidence actions. This read-only diagnostic neither clears a gate nor changes the registered experiment.
+
 [Open ETF Research](https://tcr.161-33-69-185.sslip.io/etf-research) (dashboard login required).
 
 This workflow implements four improvements in order: verify daily inputs and corporate actions; register a diversified ETF experiment; test a shared portfolio with normal and doubled costs; record an agent evidence report. Every stage depends on the preceding data gate. It does not change the active paper strategy, live universe or risk limits.
