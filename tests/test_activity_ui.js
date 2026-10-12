@@ -6,4 +6,8 @@ assert(a.assess({...status,scheduler_running:false},[],date('2026-10-11T15:28Z')
 assert(a.assess({...status,state:{last_cycle:'2026-10-11T12:00Z'}},[],date('2026-10-11T15:28Z')).tone==='warn');
 const nodes={};global.document={getElementById:id=>nodes[id]??=({textContent:'',dataset:{}})};a.render(status,[],date('2026-10-11T15:28Z'));assert(nodes['activity-title'].textContent.includes('Market closed'));a.unavailable();assert(nodes['activity-title'].textContent.includes('connection'));assert.equal(nodes['desk-activity'].dataset.tone,'warn');
 const changed=JSON.parse(JSON.stringify(status));changed.coverage.instruments[0].status='FEED_ERROR';assert(a.assess(changed,[],date('2026-10-11T15:28Z')).title.includes('Data'));
+const timed={...status,_server_time:'Mon, 12 Oct 2026 13:11:00 GMT',state:{last_cycle:'2026-10-12T13:10:00Z'}};
+r=a.assess(timed,[],date('2026-10-12T14:11:00Z'));assert.equal(r.tone,'calm');assert(r.title.includes('Market closed'));assert(r.next.includes('Mon, 12 Oct'));
+assert(a.assess({...timed,state:{last_cycle:'2026-10-12T12:00:00Z'}},[],date('2026-10-12T14:11:00Z')).title.includes('Scheduler'));
+r=a.assess({...timed,_server_time:null},[],date('2026-10-12T14:11:00Z'));assert.equal(r.title,'Server clock unavailable');assert.equal(r.next,'Unavailable');
 console.log('Activity checks passed: weekends, holidays, early closes, daylight saving, Perth display, expired calendar, freezes, feed errors, scheduler and connection failures.');

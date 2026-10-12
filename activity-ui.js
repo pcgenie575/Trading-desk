@@ -13,6 +13,9 @@ function calendar(now){const p=parts(now,'America/New_York'),day=`${p.year}-${p.
 const stamp=x=>{if(!x)return null;const value=new Date(x);return Number.isFinite(+value)?value:null;};
 const perth=d=>d?new Intl.DateTimeFormat('en-AU',{timeZone:'Australia/Perth',weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}).format(d)+' Perth':'Unavailable';
 function assess(status,messages=[],now=new Date()){
+ // The dashboard supplies the status response's HTTP Date. Device clocks can
+ // be wrong; use one clock for both the session and checkpoint comparisons.
+ const responseTime=stamp(status._server_time);if(responseTime)now=responseTime;
  const market=calendar(now),state=status.state||{},cycle=stamp(state.last_cycle),age=cycle?(now-cycle)/60000:null;
  const stocks=(status.coverage?.instruments||[]).filter(x=>x.paper_enabled&&x.asset==='US share/ETF');
  const active=new Set((status.open_positions||[]).map(x=>x.symbol));const problems=stocks.filter(x=>['FEED_ERROR','DATA_QUARANTINED','NO_COMPLETED_DATA'].includes(x.status));
@@ -27,8 +30,10 @@ function assess(status,messages=[],now=new Date()){
  if(market.open&&stocks.some(x=>active.has(x.symbol)&&(!stamp(x.last_success)||now-stamp(x.last_success)>2700000))){title='Market open · position data needs attention';tone='warn';}
  if(problems.length){title='Data needs attention';tone='warn';reason='Feed issues: '+problems.map(x=>x.symbol+' ('+x.status.replaceAll('_',' ').toLowerCase()+')').join(', ')+'. Inspect coverage before relying on displayed prices.';}
  if(!status.scheduler_running||age===null||age>15){title='Scheduler needs attention';tone='warn';reason=!status.scheduler_running?'The scheduler is not running.':'No recent scheduler checkpoint is available. Displayed values may be old.';}
+ if(Object.hasOwn(status,'_server_time')&&!responseTime){title='Server clock unavailable';tone='warn';reason='The status response has no usable server timestamp. Session and freshness checks cannot be verified.';}
  if(state.frozen){title='Paper desk paused · risk control active';tone='warn';reason=state.freeze_reason||'A risk freeze blocks entries. Review the evidence; this banner does not unfreeze the desk.';}
- return {title,tone,reason,market:market.known?(market.open?'Regular session open':'Regular session closed'):'Calendar unavailable',next:market.next?perth(market.next):'Unavailable',cycle:perth(cycle),feed:perth(fetched),bar:latestBar?latestBar+' New York · candle start':'No stock candle recorded',event:perth(stamp(stockEvent?.ts))};
+ const clockUnknown=Object.hasOwn(status,'_server_time')&&!responseTime;
+ return {title,tone,reason,market:clockUnknown?'Server time unavailable':market.known?(market.open?'Regular session open':'Regular session closed'):'Calendar unavailable',next:!clockUnknown&&market.next?perth(market.next):'Unavailable',cycle:perth(cycle),feed:perth(fetched),bar:latestBar?latestBar+' New York · candle start':'No stock candle recorded',event:perth(stamp(stockEvent?.ts))};
 }
 function render(status,messages,now){const r=assess(status,messages,now),box=document.getElementById('desk-activity');if(!box)return;box.dataset.tone=r.tone;for(const [id,key] of [['activity-title','title'],['activity-reason','reason'],['activity-market','market'],['activity-next','next'],['activity-cycle','cycle'],['activity-feed','feed'],['activity-bar','bar'],['activity-event','event']])document.getElementById(id).textContent=r[key];}
 function unavailable(){const box=document.getElementById('desk-activity');if(!box)return;box.dataset.tone='warn';document.getElementById('activity-title').textContent='Dashboard connection needs attention';document.getElementById('activity-reason').textContent='Could not refresh desk status. Any displayed timestamps and values are from the last successful dashboard refresh.';}

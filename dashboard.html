@@ -213,7 +213,7 @@ function render(){
 
 }
 
-async function get(path){const r=await fetch(path);if(!r.ok)throw Error(r.status===401?'Sign in again to view this desk.':'Could not load desk data ('+r.status+').');return r.json()}
+async function get(path){const r=await fetch(path);if(!r.ok)throw Error(r.status===401?'Sign in again to view this desk.':'Could not load desk data ('+r.status+').');const data=await r.json();if(path==='/status')data._server_time=r.headers.get('Date');return data}
 
 async function refresh(){if(busy)return;busy=true;try{const [status,messages,positions,journal]=await Promise.all(['/status','/messages?limit=200','/positions','/journal'].map(get));const closed=positions.filter(p=>p.status==='CLOSED'),wins=closed.filter(p=>p.realized_pnl>0);const review={closed_trades:closed.length,realized_pnl:closed.reduce((n,p)=>n+(p.realized_pnl||0),0),win_rate_pct:closed.length?wins.length/closed.length*100:0};snapshot={status,messages,positions,review,journal};if(globalThis.DeskActivity)DeskActivity.render(status,messages);render();document.getElementById('error').textContent=''}catch(e){if(globalThis.DeskActivity)DeskActivity.unavailable();document.getElementById('error').textContent=e.message+' Displayed values may be out of date.'}finally{busy=false}}
 
