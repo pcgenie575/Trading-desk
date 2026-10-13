@@ -115,7 +115,7 @@ See [Portfolio Evidence](../PORTFOLIO_EVIDENCE.md) for exact protocol, negative 
 ## ETF input and portfolio evidence
 
 [ETF Research guide](../ETF_RESEARCH.md) explains the fixed five-market experiment, raw-price fills, split/distribution accounting, shared risk gates and agent evidence report. [Open the private workflow](https://tcr.161-33-69-185.sslip.io/etf-research). Missing corporate-action coverage blocks performance calculations; this workflow does not activate a strategy. The schema remains at 24 tables and the current test suite has 68 passing tests.
-# Controlled learning migration (prepared, not yet deployed)
+# Controlled learning migration (deployed 14 October 2026)
 
-`controlled-learning-v1` adds `learning_cycles` (immutable completed-week evidence snapshots), `learning_approvals` (operator lesson approvals), and `learning_tests` (one frozen exit experiment with development/forward datasets). Existing tables and paper records are preserved. Once installed and the first worker checkpoint runs, the schema has 27 tables. Public source contains no private records. See [Controlled Learning](../CONTROLLED_LEARNING.md).
+`controlled-learning-v1` adds `learning_cycles` (immutable completed-week evidence snapshots), `learning_approvals` (operator lesson approvals), and `learning_tests` (one frozen exit experiment with development/forward datasets). Existing tables and paper records are preserved. The first worker checkpoint has run; the schema has 27 tables. Public source contains no private records. See [Controlled Learning](../CONTROLLED_LEARNING.md).
 

@@ -1,6 +1,6 @@
 # Book-informed agent curriculum
 
-[Controlled learning cycle](CONTROLLED_LEARNING.md) adds automatic completed-week reviews, draft experience lessons, a single fixed cost-stressed exit experiment and gated future paper comparison. It is tested but awaiting Oracle deployment. Lessons require operator approval; active trading rules additionally require portfolio validation and an approved software change.
+[Controlled learning cycle](CONTROLLED_LEARNING.md) adds automatic completed-week reviews, draft experience lessons, a single fixed cost-stressed exit experiment and gated future paper comparison. It is live on Oracle and verified through service restart on 14 October 2026 (Perth). Lessons require operator approval; active trading rules additionally require portfolio validation and an approved software change.
 
 Version: `book-curriculum-v1`. The operating agents are deterministic software.
 Teaching here means coded checks, decision annotations, provenance and review
