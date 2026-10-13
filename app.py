@@ -547,6 +547,10 @@ def scheduler_loop():
             # Advisory diagnostics cannot interrupt the operational scheduler.
             try:emit('Logger','Supervisor','BRAIN_REPORT_ERROR','REVIEW','Specialty snapshot failed; operational rules remain active.')
             except Exception:pass
+        try:LEARNING_CYCLE['tick']()
+        except Exception:
+            try:emit('Performance Reviewer','Supervisor','LEARNING_ERROR','REVIEW','Learning review failed; operational rules unchanged.')
+            except Exception:pass
         _scheduler_stop.wait(POLL_SECONDS)
 
 def start_scheduler():
@@ -1205,4 +1209,6 @@ from edge_lab_api import install as install_edge_lab
 EDGE_LAB=install_edge_lab(app,globals())
 from etf_lab_api import install as install_etf_lab
 ETF_LAB=install_etf_lab(app,globals())
+from learning_cycle import install as install_learning_cycle
+LEARNING_CYCLE=install_learning_cycle(app,globals())
 

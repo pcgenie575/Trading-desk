@@ -116,8 +116,12 @@ def install(app,services):
         return public(row(rid))
     @app.get('/research-accountability')
     def accountability():
-        c=db();originals=[dict(x) for x in c.execute('SELECT id,status,protocol FROM research_runs')];labs=[dict(x) for x in c.execute('SELECT id,kind,status,protocol FROM edge_lab_runs')];c.close()
+        c=db();originals=[dict(x) for x in c.execute('SELECT id,status,protocol FROM research_runs')];labs=[dict(x) for x in c.execute('SELECT id,kind,status,protocol FROM edge_lab_runs')]
+        learning=[dict(x) for x in c.execute('SELECT id,status,protocol FROM learning_tests')] if c.execute("SELECT 1 FROM sqlite_master WHERE name='learning_tests'").fetchone() else []
+        c.close()
         inventory=[]
+        for x in learning:
+            p=json.loads(x['protocol']);inventory.append({'id':x['id'],'kind':'LEARNING','status':x['status'],'version':p['version'],'registered_strategy_slots':2,'cost_method_calculations':None})
         for x in originals:
             p=json.loads(x['protocol']);n=slots(p,'ORIGINAL')
             inventory.append({'id':x['id'],'kind':'ORIGINAL','status':x['status'],'version':p.get('version'),'registered_strategy_slots':n,'cost_method_calculations':None})
