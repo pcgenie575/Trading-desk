@@ -28,3 +28,11 @@ The additive `schedule_studies` table brings the current database to 35 tables. 
 The central `/research-accountability` inventory now includes funding and schedule records, including blocked/rejected jobs. It identifies one new hypothesis for each, counts reused baseline slots explicitly, and distinguishes two new weekly calculations from referenced controls. It continues to report that the all-time independent search count is unknown; no guessed statistical confidence is added.
 
 Production acceptance requires unchanged live trades, risk limits and cost model; preserved previous funding results and future-data registration; authentication; one-time calculation; and persistence after restart. No provider requests, paid services or broker connection are used.
+
+## Development decision — 17 October 2026
+
+The one registered Friday candidate completed in both declared cost cases with zero provider requests and no baseline recalculation. It reduced turnover and trading drawdown, and the primary funded result was positive. The doubled-cost result remained negative; sample size, profit factor, stress expectancy and winner-concentration checks failed. The recorded decision is **REJECT_DEVELOPMENT**, with no activation or replacement hypothesis.
+
+These are previously inspected historical development prices, not independent evidence or live desk earnings. The original unbuffered daily baseline, rejected funding-buffer study and operational strategy remain preserved. All 114 backend tests passed. UI checks covered result labels, referenced control metadata, rejection, text escaping and stale states; the desktop empty-state layout was inspected using a separate local fixture.
+
+Oracle acceptance confirmed 35 tables, exactly one weekly and one funding study, authenticated healthy service, identical full results after restart/repeated registration, preserved future-data collection, unchanged operational costs/trades/risk limits, and a completed database backup.
