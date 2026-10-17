@@ -49,6 +49,8 @@ Evidence required: an authoritative first trading-session date and reliable dail
 
 ## Next decision
 
+[Prepared issuer enquiries](ETF_SOURCE_REQUESTS.md) contain the exact questions and response acceptance requirements. They are drafts and have not been sent. The official enquiry route was verified; no complete historical IAU register was exposed by the available web reader.
+
 Keep autonomous paper observation running under its existing controls. Pause new ETF performance experiments until the inputs and method have been reviewed. Useful next evidence is an issuer/trustee response for IAU and source clarification for GSG. Any external support message requires the user's authorisation before sending. No purchase or account action is required for this memo.
 
 No new price requests, research reruns, runtime code edits, ledger changes or risk changes were made for this review. Original source captures remain unchanged. Web-rendered filing review is not a full original-byte filing archive or amendment review.
