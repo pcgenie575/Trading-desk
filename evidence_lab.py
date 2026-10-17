@@ -72,6 +72,8 @@ def readiness(c):
 def install(app,s):
     from funding_study import install as install_funding_study
     install_funding_study(app,s)
+    from schedule_study import install as install_schedule_study
+    install_schedule_study(app,s)
     worker_lock=threading.Lock()
     def setup():
         c=s['db']();initialise(c)

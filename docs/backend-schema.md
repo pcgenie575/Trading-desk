@@ -121,6 +121,8 @@ See [Portfolio Evidence](../PORTFOLIO_EVIDENCE.md) for exact protocol, negative 
 
 ## Feed provenance migration — 17 October 2026
 
+The [weekly schedule study](../WEEKLY_STUDY.md) adds `schedule_studies`, keyed by one fixed version, with registration timestamp, status, protocol/source hashes, frozen dataset and full result. The current total is 35 tables. Its daily baseline references the original funding-study record rather than replacing it. Compact API summaries omit large histories without deleting persistent evidence.
+
 The subsequent [funding study](../FUNDING_STUDY.md) adds `funding_studies`, keyed by fixed study version, with registration timestamp, status, protocol/source fingerprint, frozen development dataset and result payload. The current total is 34 tables. The version cannot be silently re-registered against new prices or parameters; interrupted jobs are retained. Older counts below describe earlier migrations.
 
 Later that day the [evidence lab](../PROFIT_EVIDENCE.md) added five tables, bringing the current total to 33: `execution_evidence` keyed by `(trade_id,side)`; `shadow_observations` keyed by deterministic observation hash; `paired_collection` keyed by frozen plan version; `paired_observations` keyed by `(plan_id,symbol,bar_time)`; and `engine_replays` keyed by protocol/source/dataset hash. Fills are stored in the trade transaction; comparison inputs and shadow records are not trades. Raw replay datasets and results are private. No historical costs or shadow outcomes are fabricated by migration. Counts below describe earlier migrations.

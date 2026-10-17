@@ -118,8 +118,14 @@ def install(app,services):
     def accountability():
         c=db();originals=[dict(x) for x in c.execute('SELECT id,status,protocol FROM research_runs')];labs=[dict(x) for x in c.execute('SELECT id,kind,status,protocol FROM edge_lab_runs')]
         learning=[dict(x) for x in c.execute('SELECT id,status,protocol FROM learning_tests')] if c.execute("SELECT 1 FROM sqlite_master WHERE name='learning_tests'").fetchone() else []
+        fixed=[]
+        for table,kind,calculations in [('funding_studies','FUNDED_TURNOVER',8),('schedule_studies','WEEKLY_SCHEDULE',2)]:
+            if c.execute("SELECT 1 FROM sqlite_master WHERE name=?",(table,)).fetchone():
+                fixed.extend(dict(x,kind=kind,calculations=calculations) for x in c.execute('SELECT id,status,protocol FROM '+table))
         c.close()
         inventory=[]
+        for x in fixed:
+            p=json.loads(x['protocol']);inventory.append({'id':x['id'],'kind':x['kind'],'status':x['status'],'version':p['study']['version'],'registered_strategy_slots':2,'new_hypotheses':1,'cost_method_calculations':x['calculations'],'baseline_reused':True})
         for x in learning:
             p=json.loads(x['protocol']);inventory.append({'id':x['id'],'kind':'LEARNING','status':x['status'],'version':p['version'],'registered_strategy_slots':2,'cost_method_calculations':None})
         for x in originals:

@@ -73,6 +73,8 @@ The [Portfolio Evidence guide](PORTFOLIO_EVIDENCE.md) documents the shared risk 
 
 ## Reviewed research improvements
 
+The [Weekly Schedule study](WEEKLY_STUDY.md) registers one Friday-only decision hypothesis against the saved unbuffered daily baseline. Protective stops and portfolio risk checks remain daily. Open the private [weekly workspace](https://tcr.161-33-69-185.sslip.io/weekly-study). Funding and schedule studies are included in the research-accountability inventory. The additive table brings the schema to 35; all prior studies and the live paper strategy remain unchanged.
+
 The [Funding & Turnover study](FUNDING_STUDY.md) separates AUD conversion from USD trading and registers one fixed daily exit-buffer hypothesis against its unchanged baseline. It retains the original cost allowance and adds a conservative funded-account stress case. Open the private [funding workspace](https://tcr.161-33-69-185.sslip.io/funding-study). The implementation passes 108 backend tests; the additive registered-study table brings the schema to 34. Nothing in this study changes the live strategy or promotes a candidate.
 
 The [Profit & Evidence guide](PROFIT_EVIDENCE.md) describes cost reconciliation with explicit legacy gaps, shadow decisions, ETF repair readiness, future-only comparison collection and an isolated replay of the real four-hour engine. Open the private [evidence workspace](https://tcr.161-33-69-185.sslip.io/evidence). The 17 October implementation passes 102 backend tests and adds five persistent tables (33 total). Challenger execution remains disabled until the existing research gates qualify it; ETF data blockers remain visible.
