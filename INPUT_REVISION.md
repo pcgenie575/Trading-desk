@@ -4,6 +4,8 @@
 
 ## Recorded draft — 17 October 2026
 
+See the [ETF evidence decision](ETF_EVIDENCE_DECISION.md) for the historical IAU filing review and precise remaining source requirements. That review does not clear either blocked asset.
+
 | Required component | Draft state | Basis |
 |---|---|---|
 | IWM | Assembled for review | Unchanged raw prices; reparsed original issuer file; original reconciliation retained |
