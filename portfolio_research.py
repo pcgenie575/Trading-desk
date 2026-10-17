@@ -19,12 +19,15 @@ PROTOCOL={'version':'portfolio-development-v1','symbols':['SPY','QQQ','IWM','DIA
  'OHLC cannot identify intrabar ordering. Excursions at intrabar stops are lower bounds. Circuit breakers are evaluated at observed opens/closes and exits, not tick by tick.',
  'Deterministic symbol ordering is an assumption. Research end liquidation is synthetic. No taxes or AUD currency returns.']}
 
-def simulate(dataset,costs=COSTS):
+def simulate(dataset,costs=COSTS,*,exit_buffer_pct=0.,initial_cash=5000.):
+    import math
+    if not math.isfinite(exit_buffer_pct) or not 0<=exit_buffer_pct<=.01:raise ValueError('Exit buffer outside registered diagnostic bounds.')
+    if not math.isfinite(initial_cash) or not 0<initial_cash<=5000:raise ValueError('Invalid initial diagnostic cash.')
     symbols=PROTOCOL['symbols'];start=PROTOCOL['start'];end=PROTOCOL['end']
     data={s:[b for b in dataset[s] if b['datetime']<=end] for s in symbols}
     for bars in data.values():validate_daily(bars,end=end)
     fs,_,nextday=context(data);by={s:{b['datetime']:b for b in bars} for s,bars in data.items()}
-    cash=RULES['starting_balance'];peak=cash;equity=cash;frozen=False;freeze=None;dd=0.
+    cash=initial_cash;peak=cash;equity=cash;frozen=False;freeze=None;dd=0.
     active={};pending={};marks={};trades=[];decisions=[];curve=[];blocked=Counter();invested=0;days=0;daily=0.
     def mark(day,phase):
         nonlocal peak,equity,frozen,freeze,dd
@@ -96,7 +99,7 @@ def simulate(dataset,costs=COSTS):
             if not b:continue
             feat=fs[s][day];v=PROTOCOL['variant'];i=feat['index']
             if s in active:
-                if feat['ma'][v['exit_ma']] is not None and b['close']<feat['ma'][v['exit_ma']]:pending[s]={'side':'sell','day':day}
+                if feat['ma'][v['exit_ma']] is not None and b['close']<feat['ma'][v['exit_ma']]*(1-exit_buffer_pct):pending[s]={'side':'sell','day':day}
             elif not missing and i>=max(v['trend'],v['breakout']):
                 if b['close']>feat['ma'][v['trend']] and b['close']>max(x['high'] for x in data[s][i-v['breakout']:i]):
                     stop=b['close']*.95;f=sized_entry(b['close'],stop,cash,costs=costs)
@@ -107,7 +110,7 @@ def simulate(dataset,costs=COSTS):
         if b:sell(s,b['close'],b,'END_OF_RESEARCH')
     final_day=curve[-1]['day'] if curve else None
     if final_day:mark(final_day,'TERMINAL')
-    return dict(metrics(trades),ending_equity=equity,net_equity_change=equity-5000,max_drawdown=dd,freeze=freeze,
+    return dict(metrics(trades),ending_equity=equity,net_equity_change=equity-initial_cash,max_drawdown=dd,freeze=freeze,
                 time_invested_pct=100*invested/days if days else None,remaining_unliquidated_symbols=list(active),
                 blocked_checks=dict(blocked),trade_log=trades,risk_decisions=decisions,equity_curve=curve)
 
