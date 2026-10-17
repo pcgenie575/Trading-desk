@@ -153,6 +153,8 @@ def init_db():
     for name in ('entry_fee','exit_fee','estimated_costs'):
         if name not in {r['name'] for r in con.execute('PRAGMA table_info(positions)')}:
             con.execute('ALTER TABLE positions ADD COLUMN '+name+' REAL NOT NULL DEFAULT 0')
+    from evidence_lab import initialise as initialise_evidence
+    initialise_evidence(con)
     if 'rule_break' not in {r['name'] for r in con.execute('PRAGMA table_info(trade_reviews)')}:
         con.execute("ALTER TABLE trade_reviews ADD COLUMN rule_break TEXT NOT NULL DEFAULT 'none'")
     defaults = {
@@ -218,6 +220,8 @@ def emit(sender, recipient, typ, status, reason, data=None, trade_id=None):
     con=db()
     con.execute("INSERT INTO messages VALUES (?,?,?,?,?,?,?,?,?)",
       (msg["id"],msg["ts"],sender,recipient,typ,status,reason,json.dumps(msg["data"]),trade_id))
+    from evidence_lab import record_shadow
+    record_shadow(con,msg,state_raw().get(checkpoint_key(),''))
     con.commit(); con.close()
     return msg
 
@@ -317,6 +321,8 @@ def paper_enter(candidate, bar):
       VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
       (trade_id,current_symbol(),"OPEN",bar["datetime"],entry,qty,candidate["stop"],value,planned,f["fee"],f["total_cost"]))
     con.execute('INSERT INTO trade_excursions VALUES (?,?)',(trade_id,json.dumps(excursion_initial(raw,qty,planned))))
+    from evidence_lab import record_fill
+    record_fill(con,trade_id,'buy',utcnow(),f)
     context={"strategy":"Trend Breakout v1","mode":"paper","captured_at":utcnow(),
              "candidate":candidate,"strategy_config":asdict(CONFIG),"risk_rules":dict(RULES),
              "instrument":dict(INSTRUMENTS[current_symbol()])}
@@ -342,6 +348,8 @@ def paper_exit(pos, raw_price, bar_time, reason):
     con=db()
     con.execute("""UPDATE positions SET status='CLOSED',exit_time=?,exit_price=?,
       realized_pnl=?,exit_reason=?,exit_fee=?,estimated_costs=estimated_costs+? WHERE id=?""",(bar_time,exit_price,pnl,reason,f["fee"],f["total_cost"],pos["id"]))
+    from evidence_lab import record_fill
+    record_fill(con,pos['id'],'sell',utcnow(),f)
     con.commit(); con.close()
     s=get_state(); set_state("cash",s["cash"]+proceeds)
     add_daily_pnl(pnl)
@@ -418,6 +426,26 @@ def reserve_credit(is_open=False):
     set_state(key,used+1);set_state(minute_key,minute);set_state('credit_minute_count',count+1)
     return True
 
+def process_received_bars(bars):
+    """Shared provider-batch dispatch for operations and isolated replay."""
+    symbol=current_symbol();quality=check_data_quality(bars)
+    bars=quality.pop('canonical_bars',bars)
+    if quality['quarantined']:
+        freeze_system('Data quarantine for '+symbol+': '+', '.join(i['code'] for i in quality['issues']))
+        set_state('coverage:'+symbol,'DATA_QUARANTINED')
+        return {'status':'DATA_QUARANTINED'}
+    set_state('coverage:'+symbol,'DATA_RECEIVED');set_state('feed_success:'+symbol,utcnow())
+    from evidence_lab import collect
+    con=db();collect(con,globals(),symbol,bars,utcnow());con.commit();con.close()
+    processed=state_raw().get(checkpoint_key(),'')
+    pending=[i for i,b in enumerate(bars) if b['datetime']>processed]
+    if not processed:pending=[len(bars)-1]
+    if processed and processed<bars[0]['datetime']:
+        freeze_system('Recovery data gap for '+symbol+': operator review required.')
+    result={'status':'NO_NEW_BAR'}
+    for i in pending:result=process_bars(bars[:i+1],allow_entry=(i==len(bars)-1 and INSTRUMENTS[symbol]['paper_enabled']))
+    return result
+
 def autonomous_cycle(force=False):
     with _cycle_lock:
         set_state('last_cycle',utcnow())
@@ -440,22 +468,7 @@ def autonomous_cycle(force=False):
                 bars=TwelveDataAdapter().latest_completed_bars(symbol,'4h',100)
                 if not bars:
                     set_state('coverage:'+symbol,'NO_COMPLETED_DATA');continue
-                quality=check_data_quality(bars)
-                bars=quality.pop('canonical_bars',bars)
-                if quality['quarantined']:
-                    freeze_system('Data quarantine for '+symbol+': '+', '.join(i['code'] for i in quality['issues']))
-                    set_state('coverage:'+symbol,'DATA_QUARANTINED');results[symbol]={'status':'DATA_QUARANTINED'};continue
-                set_state('coverage:'+symbol,'DATA_RECEIVED')
-                set_state('feed_success:'+symbol,utcnow())
-                processed=state_raw().get(checkpoint_key(),'')
-                pending=[i for i,b in enumerate(bars) if b['datetime']>processed]
-                if not processed:pending=[len(bars)-1]
-                if processed and processed<bars[0]['datetime']:
-                    freeze_system('Recovery data gap for '+symbol+': operator review required.')
-                result={'status':'NO_NEW_BAR'}
-                for i in pending:
-                    result=process_bars(bars[:i+1],allow_entry=(i==len(bars)-1 and INSTRUMENTS[symbol]['paper_enabled']))
-                results[symbol]=result
+                results[symbol]=process_received_bars(bars)
             except Exception as e:
                 set_state('coverage:'+symbol,'FEED_ERROR')
                 reason=f'{type(e).__name__}: {e}'
@@ -1040,7 +1053,7 @@ def check_data_quality(bars):
     from feed_snapshots import preserve_observed,SOURCE as FEED_SOURCE
     con=db();saved={r['bar_time']:dict(r) for r in con.execute("SELECT bar_time,open,high,low,close,volume FROM candles WHERE symbol=? AND interval='4h' ORDER BY bar_time DESC LIMIT 100",(current_symbol(),))}
     origins={r['bar_time']:dict(r) for r in con.execute('SELECT * FROM candle_origins WHERE symbol=?',(current_symbol(),))}
-    provider_bars=bars;bars,transitions=preserve_observed(current_symbol(),bars,saved,origins)
+    provider_bars=bars;bars,transitions=preserve_observed(current_symbol(),bars,saved,origins,now=datetime.now(timezone.utc))
     report=assess_quality(current_symbol(),bars,saved=saved)
     if transitions:
         report=dict(report,source_transitions=transitions,source_policy='As-observed OHLCV retained across bounded, documented source rollover.',source_documentation=FEED_SOURCE)
@@ -1229,3 +1242,6 @@ ETF_LAB=install_etf_lab(app,globals())
 from learning_cycle import install as install_learning_cycle
 LEARNING_CYCLE=install_learning_cycle(app,globals())
 
+
+from evidence_lab import install as install_evidence_lab
+EVIDENCE_LAB=install_evidence_lab(app,globals())

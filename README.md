@@ -73,6 +73,8 @@ The [Portfolio Evidence guide](PORTFOLIO_EVIDENCE.md) documents the shared risk 
 
 ## Reviewed research improvements
 
+The [Profit & Evidence guide](PROFIT_EVIDENCE.md) describes cost reconciliation with explicit legacy gaps, shadow decisions, ETF repair readiness, future-only comparison collection and an isolated replay of the real four-hour engine. Open the private [evidence workspace](https://tcr.161-33-69-185.sslip.io/evidence). The 17 October implementation passes 102 backend tests and adds five persistent tables (33 total). Challenger execution remains disabled until the existing research gates qualify it; ETF data blockers remain visible.
+
 Current feed handling: [Feed snapshots and historical revisions](FEED_SNAPSHOTS.md) explains the bounded preservation of original decision inputs, raw provider evidence, legacy quarantine review and the additive provenance table. The 17 October source passes 95 tests; see that guide for deployment status. Earlier test/table counts below and above refer to their dated releases.
 
 Read the [recommendations assessment](docs/recommendations-review.md) and [versioned cost diagnostic](docs/cost-diagnostic.md). The new diagnostic distinguishes gross signal results, FX/fee sensitivity and resized trade paths. Registered experiment counts do not imply independent statistical trials; confidence scores stay unavailable without valid inputs.

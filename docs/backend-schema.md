@@ -121,6 +121,8 @@ See [Portfolio Evidence](../PORTFOLIO_EVIDENCE.md) for exact protocol, negative 
 
 ## Feed provenance migration — 17 October 2026
 
+Later that day the [evidence lab](../PROFIT_EVIDENCE.md) added five tables, bringing the current total to 33: `execution_evidence` keyed by `(trade_id,side)`; `shadow_observations` keyed by deterministic observation hash; `paired_collection` keyed by frozen plan version; `paired_observations` keyed by `(plan_id,symbol,bar_time)`; and `engine_replays` keyed by protocol/source/dataset hash. Fills are stored in the trade transaction; comparison inputs and shadow records are not trades. Raw replay datasets and results are private. No historical costs or shadow outcomes are fabricated by migration. Counts below describe earlier migrations.
+
 The additive `candle_origins` table brings the schema to 28 tables. Its composite primary key is `(symbol, bar_time)`; `first_seen` records the original observation time and `source_phase` records an inferred timing phase. Only newly inserted candles receive provenance. Legacy rows are deliberately not backfilled; explicit revision review marks existing provenance `REVIEWED_HISTORICAL`.
 
 Quality-report payloads retain canonical `input_bars` and raw `provider_input_bars`, with source-transition evidence when applicable. Original decision inputs, ledger records and frozen research datasets remain distinct from later provider observations. See [Feed snapshots](../FEED_SNAPSHOTS.md) for bounds, limitations and recovery requirements. Earlier table counts above describe dated releases.
