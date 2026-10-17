@@ -35,6 +35,14 @@ Alternatively, a separately documented methodology review could assess whether a
 
 ## GSG: daily prices and start-date feasibility
 
+### Follow-up: exchange notice identifies 21 July as trading start
+
+The [NYSE Information Memo 06-52](https://www.nyse.com/publicdocs/nyse/regulation/nyse/NYSE_Rules.pdf), dated 21 July 2006, identifies GSG and schedules its NYSE trading start for that day. This is primary exchange evidence supporting the retained candidate's first date, rather than merely another price publisher with the same gap. The web-indexed notice was reviewed; the combined PDF exceeded the web reader's size limit.
+
+Keep the dates distinct: the [issuer's FY2007 filing, Item 5](https://www.sec.gov/Archives/edgar/data/1346616/000119312508055731/d10k.htm) refers to a 19 July 2006 IPO, and its registration statement became effective that day. Fund inception is 10 July. Neither date alone establishes an earlier exchange-traded OHLC bar. The exchange notice is more directly relevant to the intended first trading session; the differing issuer wording is retained rather than discarded.
+
+**Methodology decision:** treat the original requirement for GSG trading data by 20 July as incompatible with the exchange's scheduled start, pending any contrary authoritative transaction record. Do not label the 21 July candidate incomplete solely because it lacks a 20 July bar. This does not approve its daily OHLC or change the original failed coverage check. A future input protocol must explicitly account for the trading start and retain the original DATA_BLOCKED result. No later start or replacement protocol has been activated.
+
 The retained second-publisher candidate begins 21 July 2006; the original protocol requires coverage by 20 July. It also disagrees materially with the saved provider's early OHLC values. Quarterly issuer extrema matching candidate daily closes does not establish valid daily opens, highs and lows.
 
 Evidence required: an authoritative first trading-session date and reliable daily trade OHLC for the original period, with definitions for splits, adjustments and market session. If the fixed cutoff precedes the first tradable session, mark the original protocol infeasible. A later start would need a separately declared protocol revision; never invent a prelisting candle or silently move the cutoff.
