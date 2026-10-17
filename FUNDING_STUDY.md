@@ -39,3 +39,11 @@ This is one new exit hypothesis with four cost sensitivities, not eight independ
 Failing any screen records REJECT_DEVELOPMENT. Passing only records FURTHER_VALIDATION_REQUIRED; it never enables promotion. Existing ETF input blockers and future-paper requirements remain authoritative. A rejected study is not automatically replaced with another setting.
 
 The additive `funding_studies` table brings the current database to 34 tables. It stores registration time, source/protocol fingerprint, exact development dataset and immutable result. The same version returns the original result without recalculating. Interrupted calculations remain interrupted. `/funding-lab` requires dashboard authentication; `/funding-lab/register` additionally requires the existing control token. Source and this guide are public; private prices, trade logs, credentials and account evidence are not published.
+
+## Recorded development decision — 17 October 2026
+
+The study completed once using the saved development dataset with zero provider requests. The fixed buffer reduced turnover and trading drawdown in the primary funded scenario, but net return after funding remained negative. Its doubled-cost expectancy, minimum sample and profitability screens failed. The decision is **REJECT_DEVELOPMENT**. A positive lower-cost brokerage-floor sensitivity does not override that rejection or establish actual account fees.
+
+The live strategy and cost model were preserved. All 108 backend tests passed, including the unchanged default simulator, cash-conversion bridge, no-future-data checks, one-time registration and unchanged protective gap exits. UI checks covered registration, rejected results, cost presentation, escaping and stale states. The desktop layout was inspected using a separate empty fixture. Private results are available in the authenticated workspace; no holdout, parameter replacement or automatic activation followed the rejection.
+
+Oracle acceptance verified 34 tables, one persisted study, identical results after restart and repeated registration, healthy scheduler/HTTPS authentication, and preserved live costs, trades, limits and future comparison registration.
