@@ -143,3 +143,7 @@ Additive `volatility_studies(id PRIMARY KEY, registered_at, status, protocol, da
 ## Quarantined price-source reviews
 
 `price_source_reviews(id PRIMARY KEY, recorded_at, protocol, payload)` retains one fixed source investigation. Protocol binds the local pre-request plan, original ETF dataset hash, summary hash and source-code hash. Payload retains private responses and quality results. Read routes suppress summaries on integrity failure. Token-protected recording fetches nothing, is idempotent and never edits original research or ledgers. Total: 38 tables; SQLite backups include retained source responses.
+
+## Fixed GSG bar-integrity record
+
+The existing `price_source_reviews` table also retains `gsg-ohlc-forensics-v1`. It references the preserved source-probe parent and original ETF data, binds issuer numerical facts and calculation fingerprints, and records one source-only analysis. The table count stays 38. Existing rows are not replaced. No price response is duplicated and no performance result is calculated.

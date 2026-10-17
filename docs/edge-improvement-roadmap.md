@@ -35,3 +35,7 @@ The funding/exit-buffer, Friday-schedule and reduction-only volatility studies a
 ## Free publisher comparison — 17 October 2026
 
 [Price Source Review](../PRICE_SOURCE_REVIEW.md) records stronger IEF adjustment diagnostics and a new GSG overlap discrepancy. The next evidence step is independent raw-price/early-session verification and a separately versioned input revision if justified. A new publisher is not automatically an approved replacement. No backtest, holdout inspection or strategy promotion followed these four source requests.
+
+## Saved GSG anomaly identified — 17 October 2026
+
+[GSG Data Integrity](../GSG_DATA_INTEGRITY.md) documents identical OHLC on all 253 saved 2008 observations. The isolated tool flags extended flat-bar runs without changing live/frozen gates. Issuer closing-range corroboration supports investigating the source, not approving new fill data. Source clarification and independently verified daily OHLC remain prerequisites for a separately versioned input revision.

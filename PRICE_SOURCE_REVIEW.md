@@ -43,3 +43,7 @@ The fixed collector `ops/probe_free_sources.py` writes its plan before requests 
 `price_source_reviews` stores the plan/source identity, exact original dataset hash, calculation-source hash, summary hash and private source responses. Existing SQLite backups include the retained responses. Stored corruption suppresses positive summaries. The additive schema now has 38 tables. Encrypted off-server backups remain unconfigured.
 
 Validation: 130 backend tests passed, including null/invalid/future data rejection, metadata checks, fixed OHLC tolerance, rounding without gate relaxation, HTML response rejection, source integrity, authentication, idempotence, original-row preservation and restart persistence.
+
+## Saved-bar forensics — 17 October 2026
+
+[GSG Data Integrity](GSG_DATA_INTEGRITY.md) records 253 consecutive saved 2008 GSG bars with identical OHLC and a separate issuer-range cross-check. It preserves this source review and all responses. It does not certify the alternative feed, replace any bar or change the original cutoff.

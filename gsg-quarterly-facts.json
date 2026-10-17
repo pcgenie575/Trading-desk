@@ -1,0 +1,153 @@
+{
+  "version": "gsg-quarterly-facts-v1",
+  "reviewed_on": "2026-10-17",
+  "source_method": "Manual numerical transcription of Item 5 tables read through the web research tool. This hash identifies the transcribed fact record, not original SEC filing bytes. Full original archives and amendment review remain incomplete.",
+  "issuer_label": "Quarterly high and low sale prices. Do not silently reinterpret this label as a daily-closing series.",
+  "comparison_method": "Report both intraday high/low extrema and closing extrema at the previously fixed $0.02 tolerance. Closing-extrema comparison was added after observing the mismatch; it is exploratory corroboration, not raw-OHLC certification.",
+  "rows": [
+    {
+      "year": 2006,
+      "quarter": 3,
+      "reported_high": 51.59,
+      "reported_low": 40.94,
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312508055731/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2006,
+      "quarter": 4,
+      "reported_high": 43.1,
+      "reported_low": 39.65,
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312508055731/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2007,
+      "quarter": 1,
+      "reported_high": 41.9,
+      "reported_low": 35.89,
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312509040488/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2007,
+      "quarter": 2,
+      "reported_high": 43.03,
+      "reported_low": 40.34,
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312509040488/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2007,
+      "quarter": 3,
+      "reported_high": 47.69,
+      "reported_low": 41.04,
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312509040488/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2007,
+      "quarter": 4,
+      "reported_high": 53.27,
+      "reported_low": 45.77,
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312509040488/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2008,
+      "quarter": 1,
+      "reported_high": 62,
+      "reported_low": 49.86,
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312509040488/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2008,
+      "quarter": 2,
+      "reported_high": 74.91,
+      "reported_low": 56.88,
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312509040488/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2008,
+      "quarter": 3,
+      "reported_high": 76.38,
+      "reported_low": 50.59,
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312509040488/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2008,
+      "quarter": 4,
+      "reported_high": 52.23,
+      "reported_low": 26.09,
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312509040488/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2009,
+      "quarter": 1,
+      "reported_high": 31.2,
+      "reported_low": 22.09,
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312510043163/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2009,
+      "quarter": 2,
+      "reported_high": 32.03,
+      "reported_low": 24.27,
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312510043163/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2009,
+      "quarter": 3,
+      "reported_high": 31.98,
+      "reported_low": 26.69,
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312510043163/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2009,
+      "quarter": 4,
+      "reported_high": 33.39,
+      "reported_low": 29.07,
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312510043163/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2010,
+      "quarter": 1,
+      "reported_high": 33.27,
+      "reported_low": 28.61,
+      "source": "https://www.sec.gov/Archives/edgar/data/1332174/000119312511047523/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2010,
+      "quarter": 2,
+      "reported_high": 32.61,
+      "reported_low": 26.53,
+      "source": "https://www.sec.gov/Archives/edgar/data/1332174/000119312511047523/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2010,
+      "quarter": 3,
+      "reported_high": 30.51,
+      "reported_low": 27.06,
+      "source": "https://www.sec.gov/Archives/edgar/data/1332174/000119312511047523/d10k.htm",
+      "section": "Item 5"
+    },
+    {
+      "year": 2010,
+      "quarter": 4,
+      "reported_high": 34.1,
+      "reported_low": 30.2,
+      "source": "https://www.sec.gov/Archives/edgar/data/1332174/000119312511047523/d10k.htm",
+      "section": "Item 5"
+    }
+  ]
+}

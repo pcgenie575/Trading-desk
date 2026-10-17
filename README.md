@@ -88,3 +88,5 @@ Reduction-only entry sizing research: [Volatility study](VOLATILITY_STUDY.md), p
 Historical source verification: [Issuer Evidence Audit](ISSUER_EVIDENCE.md), private page `/issuer-sources`. Supplemental evidence only; original ETF gates remain closed.
 
 Free-source input investigation: [Price Source Review](PRICE_SOURCE_REVIEW.md), private page `/price-sources`. Quarantined candidates only; no original data replacement or strategy activation.
+
+Saved-bar integrity tools: [GSG Data Integrity](GSG_DATA_INTEGRITY.md), private page `/data-integrity`. Source-review flags only; live rules and all original input gates remain unchanged.
