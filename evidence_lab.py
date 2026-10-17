@@ -82,6 +82,8 @@ def install(app,s):
     install_price_sources(app,s)
     from gsg_forensics import install as install_gsg_forensics
     install_gsg_forensics(app,s)
+    from input_revision import install as install_input_revision
+    install_input_revision(app,s)
     worker_lock=threading.Lock()
     def setup():
         c=s['db']();initialise(c)

@@ -51,3 +51,7 @@ Status is DATA_BLOCKED. The agent verdict is INVESTIGATE; normal/stress metrics 
 ## Independent publisher comparisons — 17 October 2026
 
 [Price Source Review](PRICE_SOURCE_REVIEW.md) retains four bounded source attempts. Yahoo IEF OHLC corroborates all 2,517 saved sessions, and its adjusted closes reconcile 120 issuer events at the existing factor tolerance. Amount rounding is separately reported, with strict failures retained. GSG begins 21 July 2006, misses the original cutoff and disagrees on 390 overlapping sessions. Both remain quarantined; original inputs and DATA_BLOCKED status are unchanged.
+
+## Separate action-based input draft — 17 October 2026
+
+[Input Revision Draft](INPUT_REVISION.md) preserves the original experiment while assembling IWM, IEF and EFA for review. IEF uses unchanged raw prices and original issuer actions, with retained independent factor and normalised-level checks. IAU and GSG remain mandatory blockers. This is a different declared input methodology, not a repair silently applied to the old dataset, and it cannot start a performance calculation.

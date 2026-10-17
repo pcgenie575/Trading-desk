@@ -90,3 +90,5 @@ Historical source verification: [Issuer Evidence Audit](ISSUER_EVIDENCE.md), pri
 Free-source input investigation: [Price Source Review](PRICE_SOURCE_REVIEW.md), private page `/price-sources`. Quarantined candidates only; no original data replacement or strategy activation.
 
 Saved-bar integrity tools: [GSG Data Integrity](GSG_DATA_INTEGRITY.md), private page `/data-integrity`. Source-review flags only; live rules and all original input gates remain unchanged.
+
+Action-based input staging: [Input Revision Draft](INPUT_REVISION.md), private page `/input-draft`. Three components assembled for review; IAU/GSG remain blockers and no simulation is permitted.

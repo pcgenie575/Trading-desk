@@ -39,3 +39,7 @@ The funding/exit-buffer, Friday-schedule and reduction-only volatility studies a
 ## Saved GSG anomaly identified — 17 October 2026
 
 [GSG Data Integrity](../GSG_DATA_INTEGRITY.md) documents identical OHLC on all 253 saved 2008 observations. The isolated tool flags extended flat-bar runs without changing live/frozen gates. Issuer closing-range corroboration supports investigating the source, not approving new fill data. Source clarification and independently verified daily OHLC remain prerequisites for a separately versioned input revision.
+
+## Versioned input staging — 17 October 2026
+
+[Input Revision Draft](../INPUT_REVISION.md) implements a separate action-based staging method, with three components assembled for review and IAU/GSG explicitly blocked. Fully back-adjusted history is diagnostic only; raw prices and effective-date actions remain the proposed signal/fill boundary. No partial-universe test or automatic methodology approval is allowed. Complete missing source evidence before considering a separately registered simulation.

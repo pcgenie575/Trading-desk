@@ -147,3 +147,7 @@ Additive `volatility_studies(id PRIMARY KEY, registered_at, status, protocol, da
 ## Fixed GSG bar-integrity record
 
 The existing `price_source_reviews` table also retains `gsg-ohlc-forensics-v1`. It references the preserved source-probe parent and original ETF data, binds issuer numerical facts and calculation fingerprints, and records one source-only analysis. The table count stays 38. Existing rows are not replaced. No price response is duplicated and no performance result is calculated.
+
+## Action-based input revisions
+
+`input_revisions(id PRIMARY KEY, created_at, status, protocol, manifest, bundle)` retains the fixed partial draft. Protocol binds method, parent source records, source fingerprints and manifest/stored-bundle hashes. Stored bundle includes draft inputs and private original issuer XML for recovery; normal export omits XML. Integrity failure suppresses the manifest and blocks export. No original input rows are changed. Total: 39 tables, with this evidence included in existing SQLite backups.
