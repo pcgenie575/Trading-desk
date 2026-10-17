@@ -16,10 +16,10 @@ Unknown legacy provenance, previously reviewed historical candles, premature cha
 
 ## Recovery and deployment
 
-The revision-review API preserves originals and audit evidence. Held-position reviews must pass the existing stop, gap and moving-average exit consistency checks. Resume remains blocked while any quarantine or risk circuit breaker is active. A forced manual cycle now bypasses only the scan interval, retaining request budgets, quality checks and risk gates.
+The revision-review API preserves originals and audit evidence. Held-position reviews must pass the existing stop, gap and moving-average exit consistency checks. Resume remains blocked while any quarantine or risk circuit breaker is active. The internal forced-cycle option bypasses only the scan interval, retaining request budgets, quality checks and risk gates; the public manual-cycle endpoint retains normal intervals.
 
 The additive database change creates `candle_origins`; back up the persistent database before deploying. Restart the service, confirm health and scheduler checkpoints, and verify new provenance records and raw/canonical quality evidence. Old quarantines need separate review because their provenance is deliberately not invented.
 
-The complete automated suite passed 95 tests on 17 October 2026, including source transitions, invalid/unknown revisions, publication calendars, evidence persistence and unchanged ledger behaviour. At documentation time the preventive fix is tested source awaiting cloud deployment. Deployment is not established by these tests.
+The complete automated suite passed 95 tests on 17 October 2026, including source transitions, invalid/unknown revisions, publication calendars, evidence persistence and unchanged ledger behaviour. The preventive fix was deployed to Oracle that day after a database backup. HTTPS health, scheduler operation and restart persistence passed; existing ledger records, risk limits and research registrations were preserved. Sixteen legacy Friday-candle revisions required separate audited review, including unchanged historical exit predicates for the held position, before deliberate resume. This does not guarantee that future changes will avoid quarantine: unknown provenance and changes beyond the bound still stop operation.
 
 Research ETF corporate-action/history blockers remain unresolved. The change provides no new strategy evidence or permission to promote a strategy, increase risk or connect a broker.

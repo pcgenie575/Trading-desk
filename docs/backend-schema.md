@@ -119,3 +119,9 @@ See [Portfolio Evidence](../PORTFOLIO_EVIDENCE.md) for exact protocol, negative 
 
 `controlled-learning-v1` adds `learning_cycles` (immutable completed-week evidence snapshots), `learning_approvals` (operator lesson approvals), and `learning_tests` (one frozen exit experiment with development/forward datasets). Existing tables and paper records are preserved. The first worker checkpoint has run; the schema has 27 tables. Public source contains no private records. See [Controlled Learning](../CONTROLLED_LEARNING.md).
 
+## Feed provenance migration — 17 October 2026
+
+The additive `candle_origins` table brings the schema to 28 tables. Its composite primary key is `(symbol, bar_time)`; `first_seen` records the original observation time and `source_phase` records an inferred timing phase. Only newly inserted candles receive provenance. Legacy rows are deliberately not backfilled; explicit revision review marks existing provenance `REVIEWED_HISTORICAL`.
+
+Quality-report payloads retain canonical `input_bars` and raw `provider_input_bars`, with source-transition evidence when applicable. Original decision inputs, ledger records and frozen research datasets remain distinct from later provider observations. See [Feed snapshots](../FEED_SNAPSHOTS.md) for bounds, limitations and recovery requirements. Earlier table counts above describe dated releases.
+
