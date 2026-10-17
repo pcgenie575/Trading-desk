@@ -1,0 +1,73 @@
+{
+  "version": "issuer-evidence-v1",
+  "reviewed_on": "2026-10-17",
+  "captures": {
+    "gsg-web-excerpts": {
+      "filename": "gsg-web-excerpts.txt",
+      "sha256": "5706d53bf903e7e383eeeaee1195ae3bdcab0032ee1ada86211290649d4b3bb3",
+      "kind": "web_tool_excerpt_not_original_filing"
+    },
+    "iau-split-web-excerpt": {
+      "filename": "iau-split-web-excerpt.txt",
+      "sha256": "129900e8abd16618c9a08b3054064a59d696966e3fd940b7743028ca9268d834",
+      "kind": "web_tool_excerpt_not_original_filing"
+    }
+  },
+  "gsg_no_distribution_periods": [
+    {
+      "start": "2006-07-10",
+      "end": "2007-12-31",
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312508055731/d10k.htm",
+      "capture": "gsg-web-excerpts",
+      "section": "Item 5",
+      "claim": "Issuer reports no shareholder distributions for this stated period."
+    },
+    {
+      "start": "2008-01-01",
+      "end": "2009-12-31",
+      "source": "https://www.sec.gov/Archives/edgar/data/1346616/000119312510043163/d10k.htm",
+      "capture": "gsg-web-excerpts",
+      "section": "Item 5",
+      "claim": "Issuer reports no shareholder distributions for this stated period."
+    },
+    {
+      "start": "2010-01-01",
+      "end": "2011-12-31",
+      "source": "https://www.sec.gov/Archives/edgar/data/1332174/000119312512088566/d274091d10k.htm",
+      "capture": "gsg-web-excerpts",
+      "section": "Item 5",
+      "claim": "Issuer reports no shareholder distributions for this stated period."
+    },
+    {
+      "start": "2012-01-01",
+      "end": "2013-12-31",
+      "source": "https://www.sec.gov/Archives/edgar/data/1332174/000143774914003127/gsg20131231_10k.htm",
+      "capture": "gsg-web-excerpts",
+      "section": "Item 5",
+      "claim": "Issuer reports no shareholder distributions for this stated period."
+    },
+    {
+      "start": "2014-01-01",
+      "end": "2015-12-31",
+      "source": "https://www.sec.gov/Archives/edgar/data/1332174/000143774916027698/gsg20151231_10k.htm",
+      "capture": "gsg-web-excerpts",
+      "section": "Item 5",
+      "claim": "Issuer reports no shareholder distributions for this stated period."
+    }
+  ],
+  "iau_split": {
+    "symbol": "IAU",
+    "effective_date": "2010-06-24",
+    "new_per_old": 10,
+    "exchange": "NYSE Arca",
+    "source": "https://www.sec.gov/Archives/edgar/data/1278680/000119312510137666/dex991.htm",
+    "capture": "iau-split-web-excerpt"
+  },
+  "limitations": [
+    "Captures are web-tool excerpts of primary SEC filings, not downloaded original filing bytes. Direct automated downloads returned HTTP 403; no access restriction was bypassed.",
+    "The 2007 and 2009 documents are joint Trust/Investing Pool filings stored under the Pool CIK. Item 5 explicitly describes the GSG Trust and its shareholders.",
+    "No full historical IAU distribution coverage is certified. Current frequency descriptions, missing worksheets and gold redemption accounting do not establish zero historical cash distributions.",
+    "This supplemental evidence never replaces the original dataset, clears its gates, retries research, or activates trading.",
+    "GSG early prices and IEF reconciliation remain unresolved. No new performance result or historical validation is calculated."
+  ]
+}

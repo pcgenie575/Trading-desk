@@ -135,3 +135,7 @@ Quality-report payloads retain canonical `input_bars` and raw `provider_input_ba
 ## Volatility sizing study
 
 Additive `volatility_studies(id PRIMARY KEY, registered_at, status, protocol, dataset, payload)` retains one immutable registered trial and its input/result. Total 36 tables. Interrupted work is marked, never rerun silently. No operational ledger edits.
+
+## Supplemental issuer source evidence
+
+`issuer_evidence(id PRIMARY KEY, recorded_at, catalog, payload)` stores one fixed source audit. Payload includes retained web excerpts and verification; catalog identifies scope and capture hashes. Authenticated reads verify integrity; failed evidence does not produce positive source claims. Recording is token-protected and idempotent, with no original research or ledger updates. The additive schema now has 37 tables. Existing SQLite backups include these captures.

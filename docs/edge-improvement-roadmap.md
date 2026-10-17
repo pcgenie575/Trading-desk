@@ -1,6 +1,6 @@
 # What would make this a credible profitable operation?
 
-The desk is a working paper operation. It is not a proven profitable system. Six daily development candidates failed the cost screen; the shared-account baseline lost $172.18 at normal estimated costs and $217.31 at doubled costs. The operational ledger has no closed trades yet. A small unrealised change cannot establish expectancy.
+The desk is a working paper operation. It is not a proven profitable system. Six daily development candidates failed the cost screen; the shared-account baseline lost $172.18 at normal estimated costs and $217.31 at doubled costs. That original assessment is historical; current ledger figures belong to the authenticated dashboard. A small gain or one closed trade cannot establish expectancy.
 
 ## First: resolve research inputs
 
@@ -25,3 +25,9 @@ Single-stock earnings exclusions still need a verified free, dated event source.
 ## Verification
 
 The diagnostic is read-only and authentication remains required through the existing ETF overview. Tests cover omitted and matched dividend adjustments, split isolation, unknown sources, invalid/missing prices, partial collection, input immutability and API access. Public documentation contains no private dataset, trading records or credentials.
+
+## Source progress and later fixed studies — 17 October 2026
+
+The funding/exit-buffer, Friday-schedule and reduction-only volatility studies are recorded and inactive; all failed their declared development qualification. Do not combine rejected variants or keep searching this same period automatically. See the root study guides. The next priority remains verified inputs.
+
+[Issuer Evidence Audit](../ISSUER_EVIDENCE.md) adds period-specific GSG statements and retained IAU split evidence. The original blocked experiment is unchanged; the audit distinguishes supported source facts from runnable inputs and makes excerpt/archive limitations explicit.

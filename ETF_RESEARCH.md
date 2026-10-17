@@ -43,3 +43,7 @@ Sources: [Twelve Data adjustment documentation](https://twelvedata.com/docs), [o
 Job `b980448d-f5f2-4e2a-89d0-2052d427e0c7` used 15 provider requests and five issuer exports. IWM and EFA passed the declared reconciliation gate. IEF has distribution-adjustment mismatches. IAU has no distribution worksheet and its inferred ten-for-one 24 June 2010 split still needs independently recorded verification. GSG has no distribution worksheet and the free price response begins 2 January 2008, too late for the fixed development start.
 
 Status is DATA_BLOCKED. The agent verdict is INVESTIGATE; normal/stress metrics and historical validation are absent. No replacement symbols, relaxed tolerances, shortened period, paid endpoint or strategy promotion were used to obtain a result. The next research action is to diagnose the saved discrepancies and obtain complete free corporate-action evidence.
+
+## Supplemental issuer evidence — 17 October 2026
+
+[Issuer Evidence Audit](ISSUER_EVIDENCE.md) records five explicit GSG no-distribution statements covering July 2006–2015 and the independently supported IAU NYSE Arca split. It preserves the original DATA_BLOCKED experiment and dataset. GSG prices, IAU full distribution coverage and IEF reconciliation remain unresolved. Read the capture/403 limitations before treating the supplement as complete certification.

@@ -76,6 +76,8 @@ def install(app,s):
     install_schedule_study(app,s)
     from volatility_study import install as install_volatility_study
     install_volatility_study(app,s)
+    from issuer_evidence import install as install_issuer_evidence
+    install_issuer_evidence(app,s)
     worker_lock=threading.Lock()
     def setup():
         c=s['db']();initialise(c)

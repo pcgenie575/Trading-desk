@@ -84,3 +84,5 @@ Current feed handling: [Feed snapshots and historical revisions](FEED_SNAPSHOTS.
 Read the [recommendations assessment](docs/recommendations-review.md) and [versioned cost diagnostic](docs/cost-diagnostic.md). The new diagnostic distinguishes gross signal results, FX/fee sensitivity and resized trade paths. Registered experiment counts do not imply independent statistical trials; confidence scores stay unavailable without valid inputs.
 
 Reduction-only entry sizing research: [Volatility study](VOLATILITY_STUDY.md), private results at `/volatility-study`. Research only; never activated automatically.
+
+Historical source verification: [Issuer Evidence Audit](ISSUER_EVIDENCE.md), private page `/issuer-sources`. Supplemental evidence only; original ETF gates remain closed.
