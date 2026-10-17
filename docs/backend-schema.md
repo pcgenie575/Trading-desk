@@ -139,3 +139,7 @@ Additive `volatility_studies(id PRIMARY KEY, registered_at, status, protocol, da
 ## Supplemental issuer source evidence
 
 `issuer_evidence(id PRIMARY KEY, recorded_at, catalog, payload)` stores one fixed source audit. Payload includes retained web excerpts and verification; catalog identifies scope and capture hashes. Authenticated reads verify integrity; failed evidence does not produce positive source claims. Recording is token-protected and idempotent, with no original research or ledger updates. The additive schema now has 37 tables. Existing SQLite backups include these captures.
+
+## Quarantined price-source reviews
+
+`price_source_reviews(id PRIMARY KEY, recorded_at, protocol, payload)` retains one fixed source investigation. Protocol binds the local pre-request plan, original ETF dataset hash, summary hash and source-code hash. Payload retains private responses and quality results. Read routes suppress summaries on integrity failure. Token-protected recording fetches nothing, is idempotent and never edits original research or ledgers. Total: 38 tables; SQLite backups include retained source responses.

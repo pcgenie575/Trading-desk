@@ -86,3 +86,5 @@ Read the [recommendations assessment](docs/recommendations-review.md) and [versi
 Reduction-only entry sizing research: [Volatility study](VOLATILITY_STUDY.md), private results at `/volatility-study`. Research only; never activated automatically.
 
 Historical source verification: [Issuer Evidence Audit](ISSUER_EVIDENCE.md), private page `/issuer-sources`. Supplemental evidence only; original ETF gates remain closed.
+
+Free-source input investigation: [Price Source Review](PRICE_SOURCE_REVIEW.md), private page `/price-sources`. Quarantined candidates only; no original data replacement or strategy activation.

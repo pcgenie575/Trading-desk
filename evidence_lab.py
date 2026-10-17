@@ -78,6 +78,8 @@ def install(app,s):
     install_volatility_study(app,s)
     from issuer_evidence import install as install_issuer_evidence
     install_issuer_evidence(app,s)
+    from price_source_review import install as install_price_sources
+    install_price_sources(app,s)
     worker_lock=threading.Lock()
     def setup():
         c=s['db']();initialise(c)

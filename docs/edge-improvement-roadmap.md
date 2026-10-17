@@ -31,3 +31,7 @@ The diagnostic is read-only and authentication remains required through the exis
 The funding/exit-buffer, Friday-schedule and reduction-only volatility studies are recorded and inactive; all failed their declared development qualification. Do not combine rejected variants or keep searching this same period automatically. See the root study guides. The next priority remains verified inputs.
 
 [Issuer Evidence Audit](../ISSUER_EVIDENCE.md) adds period-specific GSG statements and retained IAU split evidence. The original blocked experiment is unchanged; the audit distinguishes supported source facts from runnable inputs and makes excerpt/archive limitations explicit.
+
+## Free publisher comparison — 17 October 2026
+
+[Price Source Review](../PRICE_SOURCE_REVIEW.md) records stronger IEF adjustment diagnostics and a new GSG overlap discrepancy. The next evidence step is independent raw-price/early-session verification and a separately versioned input revision if justified. A new publisher is not automatically an approved replacement. No backtest, holdout inspection or strategy promotion followed these four source requests.

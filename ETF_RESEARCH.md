@@ -47,3 +47,7 @@ Status is DATA_BLOCKED. The agent verdict is INVESTIGATE; normal/stress metrics 
 ## Supplemental issuer evidence — 17 October 2026
 
 [Issuer Evidence Audit](ISSUER_EVIDENCE.md) records five explicit GSG no-distribution statements covering July 2006–2015 and the independently supported IAU NYSE Arca split. It preserves the original DATA_BLOCKED experiment and dataset. GSG prices, IAU full distribution coverage and IEF reconciliation remain unresolved. Read the capture/403 limitations before treating the supplement as complete certification.
+
+## Independent publisher comparisons — 17 October 2026
+
+[Price Source Review](PRICE_SOURCE_REVIEW.md) retains four bounded source attempts. Yahoo IEF OHLC corroborates all 2,517 saved sessions, and its adjusted closes reconcile 120 issuer events at the existing factor tolerance. Amount rounding is separately reported, with strict failures retained. GSG begins 21 July 2006, misses the original cutoff and disagrees on 390 overlapping sessions. Both remain quarantined; original inputs and DATA_BLOCKED status are unchanged.
