@@ -131,3 +131,7 @@ The additive `candle_origins` table brings the schema to 28 tables. Its composit
 
 Quality-report payloads retain canonical `input_bars` and raw `provider_input_bars`, with source-transition evidence when applicable. Original decision inputs, ledger records and frozen research datasets remain distinct from later provider observations. See [Feed snapshots](../FEED_SNAPSHOTS.md) for bounds, limitations and recovery requirements. Earlier table counts above describe dated releases.
 
+
+## Volatility sizing study
+
+Additive `volatility_studies(id PRIMARY KEY, registered_at, status, protocol, dataset, payload)` retains one immutable registered trial and its input/result. Total 36 tables. Interrupted work is marked, never rerun silently. No operational ledger edits.

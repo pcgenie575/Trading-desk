@@ -119,7 +119,7 @@ def install(app,services):
         c=db();originals=[dict(x) for x in c.execute('SELECT id,status,protocol FROM research_runs')];labs=[dict(x) for x in c.execute('SELECT id,kind,status,protocol FROM edge_lab_runs')]
         learning=[dict(x) for x in c.execute('SELECT id,status,protocol FROM learning_tests')] if c.execute("SELECT 1 FROM sqlite_master WHERE name='learning_tests'").fetchone() else []
         fixed=[]
-        for table,kind,calculations in [('funding_studies','FUNDED_TURNOVER',8),('schedule_studies','WEEKLY_SCHEDULE',2)]:
+        for table,kind,calculations in [('funding_studies','FUNDED_TURNOVER',8),('schedule_studies','WEEKLY_SCHEDULE',2),('volatility_studies','VOLATILITY_RISK',2)]:
             if c.execute("SELECT 1 FROM sqlite_master WHERE name=?",(table,)).fetchone():
                 fixed.extend(dict(x,kind=kind,calculations=calculations) for x in c.execute('SELECT id,status,protocol FROM '+table))
         c.close()

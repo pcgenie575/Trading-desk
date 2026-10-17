@@ -82,3 +82,5 @@ The [Profit & Evidence guide](PROFIT_EVIDENCE.md) describes cost reconciliation 
 Current feed handling: [Feed snapshots and historical revisions](FEED_SNAPSHOTS.md) explains the bounded preservation of original decision inputs, raw provider evidence, legacy quarantine review and the additive provenance table. The 17 October source passes 95 tests; see that guide for deployment status. Earlier test/table counts below and above refer to their dated releases.
 
 Read the [recommendations assessment](docs/recommendations-review.md) and [versioned cost diagnostic](docs/cost-diagnostic.md). The new diagnostic distinguishes gross signal results, FX/fee sensitivity and resized trade paths. Registered experiment counts do not imply independent statistical trials; confidence scores stay unavailable without valid inputs.
+
+Reduction-only entry sizing research: [Volatility study](VOLATILITY_STUDY.md), private results at `/volatility-study`. Research only; never activated automatically.
