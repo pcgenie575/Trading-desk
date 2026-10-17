@@ -94,6 +94,7 @@ def db():
 def init_db():
     con = db()
     con.executescript("""
+    CREATE TABLE IF NOT EXISTS candle_origins(symbol TEXT,bar_time TEXT,first_seen TEXT,source_phase TEXT,PRIMARY KEY(symbol,bar_time));
     CREATE TABLE IF NOT EXISTS messages(
       id TEXT PRIMARY KEY, ts TEXT, sender TEXT, recipient TEXT,
       type TEXT, status TEXT, reason TEXT, data TEXT, trade_id TEXT
@@ -228,6 +229,10 @@ def save_candles(bars):
           VALUES (?,?,?,?,?,?,?,?)""",
           (current_symbol(),"4h",b["datetime"],b["open"],b["high"],b["low"],b["close"],b["volume"]))
         inserted += cur.rowcount
+        if cur.rowcount:
+            from feed_snapshots import phase
+            seen_at=utcnow()
+            con.execute('INSERT OR IGNORE INTO candle_origins VALUES (?,?,?,?)',(current_symbol(),b['datetime'],seen_at,phase(b['datetime'],seen_at)))
     con.commit(); con.close()
     return inserted
 
@@ -428,7 +433,7 @@ def autonomous_cycle(force=False):
             try:
                 last=state_raw().get('fetch:'+symbol,'')
                 interval=OPEN_REFRESH_SECONDS if symbol in active else SCAN_REFRESH_SECONDS
-                if last and (datetime.now(timezone.utc)-datetime.fromisoformat(last)).total_seconds()<interval:continue
+                if not force and last and (datetime.now(timezone.utc)-datetime.fromisoformat(last)).total_seconds()<interval:continue
                 if not reserve_credit(symbol in active):
                     set_state('coverage:'+symbol,'BUDGET_WAIT');continue
                 set_state('fetch:'+symbol,utcnow())
@@ -436,6 +441,7 @@ def autonomous_cycle(force=False):
                 if not bars:
                     set_state('coverage:'+symbol,'NO_COMPLETED_DATA');continue
                 quality=check_data_quality(bars)
+                bars=quality.pop('canonical_bars',bars)
                 if quality['quarantined']:
                     freeze_system('Data quarantine for '+symbol+': '+', '.join(i['code'] for i in quality['issues']))
                     set_state('coverage:'+symbol,'DATA_QUARANTINED');results[symbol]={'status':'DATA_QUARANTINED'};continue
@@ -464,6 +470,7 @@ def autonomous_cycle(force=False):
 @atomic
 def process_bars(bars, allow_entry=True):
         quality=check_data_quality(bars)
+        bars=quality.pop('canonical_bars',bars)
         if quality['quarantined']:
             freeze_system('Data quarantine for '+current_symbol()+': '+', '.join(i['code'] for i in quality['issues']))
             return {'status':'DATA_QUARANTINED','quality':quality}
@@ -1029,13 +1036,22 @@ def brains_page():
 
 @atomic
 def check_data_quality(bars):
-    con=db();saved={r['bar_time']:dict(r) for r in con.execute("SELECT bar_time,open,high,low,close FROM candles WHERE symbol=? AND interval='4h' ORDER BY bar_time DESC LIMIT 100",(current_symbol(),))}
+    import hashlib
+    from feed_snapshots import preserve_observed,SOURCE as FEED_SOURCE
+    con=db();saved={r['bar_time']:dict(r) for r in con.execute("SELECT bar_time,open,high,low,close,volume FROM candles WHERE symbol=? AND interval='4h' ORDER BY bar_time DESC LIMIT 100",(current_symbol(),))}
+    origins={r['bar_time']:dict(r) for r in con.execute('SELECT * FROM candle_origins WHERE symbol=?',(current_symbol(),))}
+    provider_bars=bars;bars,transitions=preserve_observed(current_symbol(),bars,saved,origins)
     report=assess_quality(current_symbol(),bars,saved=saved)
+    if transitions:
+        report=dict(report,source_transitions=transitions,source_policy='As-observed OHLCV retained across bounded, documented source rollover.',source_documentation=FEED_SOURCE)
+        report['warnings']=report['warnings']+['Provider historical coverage differs; original intraday snapshots remain the decision inputs.']
+        report['context_hash']=hashlib.sha256(json.dumps({'report':report,'provider_bars':provider_bars},sort_keys=True).encode()).hexdigest()
     safe_input=[{k:str(v) if isinstance(v,float) and not math.isfinite(v) else v for k,v in b.items()} for b in bars]
-    inserted=con.execute('INSERT OR IGNORE INTO quality_reports VALUES (?,?,?,?)',(current_symbol(),report['context_hash'],utcnow(),json.dumps(dict(report,input_bars=safe_input)))).rowcount;con.commit();con.close()
+    raw_input=[{k:str(v) if isinstance(v,float) and not math.isfinite(v) else v for k,v in b.items()} for b in provider_bars]
+    inserted=con.execute('INSERT OR IGNORE INTO quality_reports VALUES (?,?,?,?)',(current_symbol(),report['context_hash'],utcnow(),json.dumps(dict(report,input_bars=safe_input,provider_input_bars=raw_input)))).rowcount;con.commit();con.close()
     set_state('quality:'+current_symbol(),json.dumps(report))
     if inserted:emit('Market Data','Risk & Compliance','DATA_QUALITY','PASS' if report['entry_allowed'] else 'BLOCKED','Completed session-data assessment.',report)
-    return report
+    return dict(report,canonical_bars=bars)
 
 def seed_quality_reports():
     try:
@@ -1179,6 +1195,7 @@ def accept_candle_revision(symbol:str,review:RevisionReview,x_control_token:str|
         invariants={'trade_id':active['id'],'processed_bars_compared':checked,'stop_gap_ma_exit_predicates_unchanged':True,'max_relative_correction':.001,'positions_and_original_trade_contexts_unchanged':True}
     for ch in changes:
         b=ch['accepted'];con.execute("UPDATE candles SET open=?,high=?,low=?,close=? WHERE symbol=? AND interval='4h' AND bar_time=?",(b['open'],b['high'],b['low'],b['close'],symbol,b['datetime']))
+        con.execute("UPDATE candle_origins SET source_phase='REVIEWED_HISTORICAL' WHERE symbol=? AND bar_time=?",(symbol,b['datetime']))
     rid=str(uuid.uuid4());con.execute('INSERT INTO candle_revision_reviews VALUES (?,?,?,?,?,?)',(rid,symbol,utcnow(),review.expected_hash,review.reason,json.dumps(changes)))
     previous=current_symbol()
     try:_local.symbol=symbol;new_report=check_data_quality(bars)
